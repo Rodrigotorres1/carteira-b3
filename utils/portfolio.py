@@ -24,14 +24,24 @@ def ativo_existe(ticker: str) -> bool:
     return any(a["ticker"] == ticker.upper() for a in get_ativos())
 
 
-def add_ativo(ticker: str, quantidade: int, preco_medio: float, classe: str) -> None:
-    data = _load()
-    data.setdefault("ativos", []).append({
+def add_ativo(
+    ticker: str,
+    quantidade: float,
+    preco_medio: float,
+    classe: str,
+    vencimento: str | None = None,
+) -> None:
+    """Adiciona ativo à carteira. vencimento em formato DD/MM/AAAA, apenas para Renda Fixa."""
+    ativo = {
         "ticker": ticker.upper(),
         "quantidade": quantidade,
         "preco_medio": preco_medio,
         "classe": classe,
-    })
+    }
+    if vencimento:
+        ativo["vencimento"] = vencimento
+    data = _load()
+    data.setdefault("ativos", []).append(ativo)
     _dump(data)
 
 
