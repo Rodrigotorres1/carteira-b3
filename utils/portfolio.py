@@ -353,39 +353,87 @@ def calcular_score_acao(
     return {"score": total, "label": label, "cor": cor, "fatores": fatores, "resumo": resumo}
 
 
+def _parse_data(data_str: str | None) -> date | None:
+    """Converte string DD/MM/AAAA para date. Retorna None se inválido."""
+    if not data_str:
+        return None
+    try:
+        dia, mes, ano = data_str.split("/")
+        return date(int(ano), int(mes), int(dia))
+    except Exception:
+        return None
+
+
 def calcular_renda_fixa() -> list[dict]:
-    """Retorna ativos de renda fixa enriquecidos com status de vencimento."""
+    """Retorna ativos de renda fixa com cálculos de rentabilidade e vencimento."""
     indices = get_indices_renda_fixa()
-    rentabilidade_estimada = indices["selic"]
+    ipca_anual = ((1 + indices["ipca"] / 100) ** 12 - 1) * 100
     hoje = date.today()
     resultado = []
 
     for ativo in get_ativos_por_classe("Renda Fixa"):
-        vencimento_str = ativo.get("vencimento")
-        dias = None
-        status = "Sem vencimento"
+        # --- Vencimento ---
+        venc = _parse_data(ativo.get("vencimento"))
+        dias_para_vencer = (venc - hoje).days if venc else None
+        if dias_para_vencer is None:
+            status = "Sem vencimento"
+        elif dias_para_vencer <= 0:
+            status = "Vencido"
+        elif dias_para_vencer <= 90:
+            status = "Vence em breve"
+        elif dias_para_vencer <= 365:
+            status = "Vence em 1 ano"
+        else:
+            status = "Longo prazo"
 
-        if vencimento_str:
-            try:
-                dia, mes, ano = vencimento_str.split("/")
-                venc = date(int(ano), int(mes), int(dia))
-                dias = (venc - hoje).days
-                if dias <= 0:
-                    status = "Vencido"
-                elif dias <= 90:
-                    status = "Vence em breve"
-                elif dias <= 365:
-                    status = "Vence em 1 ano"
-                else:
-                    status = "Longo prazo"
-            except Exception:
-                pass
+        # --- Dias aplicado ---
+        aplic = _parse_data(ativo.get("data_aplicacao"))
+        dias_aplicado = (hoje - aplic).days if aplic else None
+
+        # --- Taxa efetiva anual ---
+        tipo = ativo.get("tipo_rentabilidade")
+        taxa = ativo.get("taxa")
+        if tipo == "Prefixado" and taxa is not None:
+            taxa_efetiva = taxa
+        elif tipo == "% do CDI" and taxa is not None:
+            taxa_efetiva = (taxa / 100) * indices["cdi"]
+        elif tipo == "CDI+" and taxa is not None:
+            taxa_efetiva = indices["cdi"] + taxa
+        elif tipo == "IPCA+" and taxa is not None:
+            taxa_efetiva = ipca_anual + taxa
+        else:
+            taxa_efetiva = indices["selic"]
+
+        # --- Rentabilidade acumulada ---
+        valor_investido = ativo["preco_medio"]
+        if dias_aplicado is not None and dias_aplicado > 0:
+            rendimento_pct = ((1 + taxa_efetiva / 100) ** (dias_aplicado / 365) - 1) * 100
+        else:
+            rendimento_pct = None
+
+        valor_atual = (
+            valor_investido * (1 + rendimento_pct / 100)
+            if rendimento_pct is not None else valor_investido
+        )
+        rendimento_rs = valor_atual - valor_investido
+
+        # --- Valor no vencimento ---
+        if dias_aplicado is not None and dias_para_vencer is not None:
+            dias_total = dias_aplicado + dias_para_vencer
+            valor_vencimento = valor_investido * (1 + taxa_efetiva / 100) ** (dias_total / 365)
+        else:
+            valor_vencimento = None
 
         resultado.append({
             **ativo,
-            "dias_para_vencer": dias,
+            "dias_para_vencer": dias_para_vencer,
             "status_vencimento": status,
-            "rentabilidade_estimada_anual": rentabilidade_estimada,
+            "dias_aplicado": dias_aplicado,
+            "taxa_efetiva_anual": taxa_efetiva,
+            "rendimento_acumulado_pct": rendimento_pct,
+            "rendimento_acumulado_rs": rendimento_rs,
+            "valor_atual_estimado": valor_atual,
+            "valor_no_vencimento": valor_vencimento,
         })
 
     return resultado

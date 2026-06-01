@@ -171,13 +171,21 @@ def get_dados_fundamentus(ticker: str) -> dict:
 
 
 def get_indices_renda_fixa() -> dict:
-    """Busca Selic, CDI e IPCA atuais na API do Banco Central."""
-    fallback = {"selic": 10.5, "cdi": 10.4, "ipca": 5.1, "data_atualizacao": "N/A"}
+    """Busca Selic, CDI e IPCA atuais na API do Banco Central.
+
+    Selic e CDI vêm como taxa diária e são anualizados por 252 dias úteis.
+    IPCA vem como taxa mensal e é retornado diretamente.
+    """
+    fallback = {"selic": 13.75, "cdi": 13.65, "ipca": 0.67, "data_atualizacao": "N/A"}
     _urls = {
         "selic": "https://api.bcb.gov.br/dados/serie/bcdata.sgs.11/dados/ultimos/1?formato=json",
         "cdi":   "https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json",
         "ipca":  "https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados/ultimos/1?formato=json",
     }
+
+    def _anualizar(taxa_diaria: float) -> float:
+        return ((1 + taxa_diaria / 100) ** 252 - 1) * 100
+
     try:
         resultados = {}
         data_atualizacao = "N/A"
@@ -185,7 +193,8 @@ def get_indices_renda_fixa() -> dict:
             resp = requests.get(url, timeout=5)
             resp.raise_for_status()
             item = resp.json()[0]
-            resultados[chave] = float(item["valor"])
+            valor = float(item["valor"])
+            resultados[chave] = _anualizar(valor) if chave in ("selic", "cdi") else valor
             if chave == "selic":
                 data_atualizacao = item["data"]
         return {**resultados, "data_atualizacao": data_atualizacao}
