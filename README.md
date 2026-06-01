@@ -9,5 +9,5 @@ Aplicação para acompanhamento e gestão de carteira de investimentos na B3.
 pip install -r requirements.txt
 
 # Executar a aplicação
-streamlit run app.py
+streamlit run App.py
 ```
