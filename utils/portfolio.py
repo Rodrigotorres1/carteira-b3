@@ -145,7 +145,7 @@ def calcular_score_acao(
         else:
             pts_pl, nivel_pl = -1, "Caro"
         explicacao_pl = (
-            f"P/L de {pl:.1f}: o mercado paga R$ {pl:.2f} para cada R$ 1 de lucro. "
+            f"P/L de {pl:.1f}: o mercado paga R\$ {pl:.2f} para cada R\$ 1,00 de lucro. "
             f"{nivel_pl} em relação ao mercado geral."
         )
     else:
@@ -181,7 +181,7 @@ def calcular_score_acao(
         pts_pos = 1
         explicacao_pos = (
             f"Seu preço médio é R$ {preco_medio_usuario:.2f}. "
-            f"O ativo está {abs(var_pos):.1f}% abaixo do seu custo médio — "
+            f"O ativo está {abs(var_pos):.1f}% abaixo do seu custo médio: "
             f"possível oportunidade de aporte."
         )
     elif var_pos <= 20:
@@ -195,7 +195,7 @@ def calcular_score_acao(
         pts_pos = -1
         explicacao_pos = (
             f"Seu preço médio é R$ {preco_medio_usuario:.2f}. "
-            f"O ativo está {var_pos:.1f}% acima do seu custo médio — "
+            f"O ativo está {var_pos:.1f}% acima do seu custo médio: "
             f"considere realizar parte do lucro."
         )
     total += pts_pos
