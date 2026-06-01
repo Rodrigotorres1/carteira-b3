@@ -38,16 +38,25 @@ def add_ativo(
     preco_medio: float,
     classe: str,
     vencimento: str | None = None,
+    data_aplicacao: str | None = None,
+    tipo_rentabilidade: str | None = None,
+    taxa: float | None = None,
 ) -> None:
-    """Adiciona ativo à carteira. vencimento em formato DD/MM/AAAA, apenas para Renda Fixa."""
+    """Adiciona ativo à carteira. Campos opcionais de datas e taxa para Renda Fixa."""
     ativo = {
         "ticker": ticker.upper(),
         "quantidade": quantidade,
         "preco_medio": preco_medio,
         "classe": classe,
     }
-    if vencimento:
-        ativo["vencimento"] = vencimento
+    for chave, valor in [
+        ("vencimento", vencimento),
+        ("data_aplicacao", data_aplicacao),
+        ("tipo_rentabilidade", tipo_rentabilidade),
+        ("taxa", taxa),
+    ]:
+        if valor is not None:
+            ativo[chave] = valor
     data = _load()
     data.setdefault("ativos", []).append(ativo)
     _dump(data)
