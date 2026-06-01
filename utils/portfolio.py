@@ -3,6 +3,7 @@ from pathlib import Path
 
 from utils.market_data import (
     get_dados_fundamentus,
+    get_dados_yfinance_fii,
     get_preco_atual,
     get_recomendacoes_analistas,
 )
@@ -75,6 +76,149 @@ def calcular_carteira() -> list[dict]:
 def get_ativos_por_classe(classe: str) -> list:
     """Retorna lista de ativos filtrados pela classe informada."""
     return [a for a in get_ativos() if a["classe"] == classe]
+
+
+def _fator_posicao(preco_atual: float, preco_medio_usuario: float) -> dict:
+    """Calcula fator de posição do usuário, reutilizado em ações e FIIs."""
+    var_pos = ((preco_atual - preco_medio_usuario) / preco_medio_usuario) * 100
+    if var_pos < -10:
+        pts = 1
+        explicacao = (
+            f"Seu preço médio é R$ {preco_medio_usuario:.2f}. "
+            f"O ativo está {abs(var_pos):.1f}% abaixo do seu custo médio: "
+            f"possível oportunidade de aporte."
+        )
+    elif var_pos <= 20:
+        pts = 0
+        direcao = "acima" if var_pos >= 0 else "abaixo"
+        explicacao = (
+            f"Seu preço médio é R$ {preco_medio_usuario:.2f}. "
+            f"O ativo está {abs(var_pos):.1f}% {direcao} do seu custo médio."
+        )
+    else:
+        pts = -1
+        explicacao = (
+            f"Seu preço médio é R$ {preco_medio_usuario:.2f}. "
+            f"O ativo está {var_pos:.1f}% acima do seu custo médio: "
+            f"considere realizar parte do lucro."
+        )
+    return {"nome": "Sua posição na carteira", "pontos": pts, "explicacao": explicacao}
+
+
+def _fator_perfil(perfil: str) -> dict | None:
+    """Retorna fator modificador de perfil, ou None se moderado."""
+    if perfil == "conservador":
+        return {
+            "nome": "Modificador de perfil",
+            "pontos": -1,
+            "explicacao": "Perfil conservador: recomendação ajustada para maior cautela.",
+        }
+    if perfil == "arrojado":
+        return {
+            "nome": "Modificador de perfil",
+            "pontos": 1,
+            "explicacao": "Perfil arrojado: recomendação ajustada para maior tolerância a risco.",
+        }
+    return None
+
+
+def _score_label(total: int) -> tuple[str, str]:
+    if total >= 4:
+        return "Comprar", "success"
+    if total >= 1:
+        return "Manter", "info"
+    return "Vender", "warning"
+
+
+def calcular_score_fii(
+    ticker: str,
+    preco_atual: float,
+    preco_medio_usuario: float,
+    perfil: str,
+) -> dict:
+    """Calcula score de decisão para um FII com base em DY mensal, range 52s e posição."""
+    DY_MENSAL_BOM = 0.8
+    DY_MENSAL_MINIMO = 0.5
+
+    fatores = []
+    total = 0
+
+    fund = get_dados_yfinance_fii(ticker)
+
+    # Fator 1 — Dividend Yield mensal (peso 2)
+    dy_mensal = fund["dy_mensal"]
+    if dy_mensal is not None:
+        if dy_mensal >= DY_MENSAL_BOM:
+            pts_dy, nivel_dy = 2, "acima"
+        elif dy_mensal >= DY_MENSAL_MINIMO:
+            pts_dy, nivel_dy = 1, "acima"
+        else:
+            pts_dy, nivel_dy = -1, "abaixo"
+        explicacao_dy = (
+            f"DY mensal de {dy_mensal:.2f}% "
+            f"({nivel_dy} do benchmark de {DY_MENSAL_BOM}%)."
+        )
+    else:
+        pts_dy = 0
+        explicacao_dy = "Dividend yield mensal não disponível para este FII."
+    total += pts_dy
+    fatores.append({"nome": "Dividend Yield mensal", "pontos": pts_dy, "explicacao": explicacao_dy})
+
+    # Fator 2 — Posição no range de 52 semanas (peso 1)
+    p_min = fund["preco_52s_min"]
+    p_max = fund["preco_52s_max"]
+    if p_min is not None and p_max is not None and p_max > p_min:
+        posicao_range = (preco_atual - p_min) / (p_max - p_min) * 100
+        range_txt = f"R\$ {p_min:.2f} a R\$ {p_max:.2f}"
+        if posicao_range <= 30:
+            pts_52s = 1
+            explicacao_52s = (
+                f"Cota próxima da mínima do range de 52 semanas ({range_txt}): "
+                f"oportunidade de entrada."
+            )
+        elif posicao_range <= 70:
+            pts_52s = 0
+            explicacao_52s = (
+                f"Cota na metade do range de 52 semanas ({range_txt})."
+            )
+        else:
+            pts_52s = -1
+            explicacao_52s = (
+                f"Cota próxima da máxima do range de 52 semanas ({range_txt}): "
+                f"atenção ao preço de entrada."
+            )
+    else:
+        pts_52s = 0
+        explicacao_52s = "Range de 52 semanas não disponível para este FII."
+    total += pts_52s
+    fatores.append({"nome": "Range de 52 semanas", "pontos": pts_52s, "explicacao": explicacao_52s})
+
+    # Fator 3 — Posição do usuário (peso 1)
+    fpos = _fator_posicao(preco_atual, preco_medio_usuario)
+    total += fpos["pontos"]
+    fatores.append(fpos)
+
+    # Fator 4 — Modificador por perfil
+    fperfil = _fator_perfil(perfil)
+    if fperfil:
+        total += fperfil["pontos"]
+        fatores.append(fperfil)
+
+    if total >= 3:
+        label, cor = "Comprar", "success"
+    elif total >= 1:
+        label, cor = "Manter", "info"
+    else:
+        label, cor = "Vender", "warning"
+
+    fator_principal = max(fatores, key=lambda f: abs(f["pontos"]))
+    resumo = (
+        f"Score total: {total:+d} → **{label}**. "
+        f"Fator de maior peso: {fator_principal['nome']} ({fator_principal['pontos']:+d} pts). "
+        f"{fator_principal['explicacao']}"
+    )
+
+    return {"score": total, "label": label, "cor": cor, "fatores": fatores, "resumo": resumo}
 
 
 def calcular_score_acao(
@@ -176,56 +320,17 @@ def calcular_score_acao(
     fatores.append({"nome": "Dividend Yield vs Selic", "pontos": pts_dy, "explicacao": explicacao_dy})
 
     # Fator 5 — Posição do usuário (peso 1)
-    var_pos = ((preco_atual - preco_medio_usuario) / preco_medio_usuario) * 100
-    if var_pos < -10:
-        pts_pos = 1
-        explicacao_pos = (
-            f"Seu preço médio é R$ {preco_medio_usuario:.2f}. "
-            f"O ativo está {abs(var_pos):.1f}% abaixo do seu custo médio: "
-            f"possível oportunidade de aporte."
-        )
-    elif var_pos <= 20:
-        pts_pos = 0
-        direcao_pos = "acima" if var_pos >= 0 else "abaixo"
-        explicacao_pos = (
-            f"Seu preço médio é R$ {preco_medio_usuario:.2f}. "
-            f"O ativo está {abs(var_pos):.1f}% {direcao_pos} do seu custo médio."
-        )
-    else:
-        pts_pos = -1
-        explicacao_pos = (
-            f"Seu preço médio é R$ {preco_medio_usuario:.2f}. "
-            f"O ativo está {var_pos:.1f}% acima do seu custo médio: "
-            f"considere realizar parte do lucro."
-        )
-    total += pts_pos
-    fatores.append({"nome": "Sua posição na carteira", "pontos": pts_pos, "explicacao": explicacao_pos})
+    fpos = _fator_posicao(preco_atual, preco_medio_usuario)
+    total += fpos["pontos"]
+    fatores.append(fpos)
 
     # Fator 6 — Modificador por perfil
-    if perfil == "conservador":
-        total -= 1
-        fatores.append({
-            "nome": "Modificador de perfil",
-            "pontos": -1,
-            "explicacao": "Perfil conservador: recomendação ajustada para maior cautela.",
-        })
-    elif perfil == "arrojado":
-        total += 1
-        fatores.append({
-            "nome": "Modificador de perfil",
-            "pontos": 1,
-            "explicacao": "Perfil arrojado: recomendação ajustada para maior tolerância a risco.",
-        })
+    fperfil = _fator_perfil(perfil)
+    if fperfil:
+        total += fperfil["pontos"]
+        fatores.append(fperfil)
 
-    # Label e cor final
-    if total >= 4:
-        label, cor = "Comprar", "success"
-    elif total >= 1:
-        label, cor = "Manter", "info"
-    else:
-        label, cor = "Vender", "warning"
-
-    # Resumo textual
+    label, cor = _score_label(total)
     fator_principal = max(fatores, key=lambda f: abs(f["pontos"]))
     resumo = (
         f"Score total: {total:+d} → **{label}**. "
@@ -233,13 +338,7 @@ def calcular_score_acao(
         f"{fator_principal['explicacao']}"
     )
 
-    return {
-        "score": total,
-        "label": label,
-        "cor": cor,
-        "fatores": fatores,
-        "resumo": resumo,
-    }
+    return {"score": total, "label": label, "cor": cor, "fatores": fatores, "resumo": resumo}
 
 
 def calcular_alocacao_atual() -> dict[str, float]:

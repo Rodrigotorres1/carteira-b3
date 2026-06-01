@@ -97,6 +97,59 @@ def _converter_valor_fundamentus(valor) -> float | None:
         return None
 
 
+def get_dados_fii(ticker: str) -> dict | None:
+    """Retorna preço, variação e histórico de um FII da B3."""
+    try:
+        symbol = ticker + ".SA"
+        ativo = yf.Ticker(symbol)
+        fi = ativo.fast_info
+        info = ativo.info
+
+        preco_atual = float(fi.last_price)
+        preco_anterior = float(fi.previous_close)
+        variacao_pct = ((preco_atual - preco_anterior) / preco_anterior) * 100
+
+        return {
+            "preco_atual": preco_atual,
+            "preco_anterior": preco_anterior,
+            "variacao_pct": variacao_pct,
+            "nome": info.get("shortName", ticker),
+            "historico": ativo.history(period="1y"),
+        }
+    except Exception:
+        return None
+
+
+def get_dados_yfinance_fii(ticker: str) -> dict:
+    """Retorna indicadores de mercado de um FII via yfinance."""
+    vazio = {
+        "dy_anual": None, "dy_mensal": None, "dividend_rate": None,
+        "pvp": None, "liquidez": None,
+        "preco_52s_min": None, "preco_52s_max": None,
+    }
+    try:
+        info = yf.Ticker(ticker + ".SA").info
+
+        dy_raw = info.get("dividendYield")
+        if dy_raw is not None:
+            dy_anual = dy_raw if dy_raw > 1 else dy_raw * 100
+        else:
+            dy_anual = None
+        dy_mensal = round(dy_anual / 12, 4) if dy_anual is not None else None
+
+        return {
+            "dy_anual": dy_anual,
+            "dy_mensal": dy_mensal,
+            "dividend_rate": info.get("dividendRate"),
+            "pvp": None,
+            "liquidez": info.get("averageVolume"),
+            "preco_52s_min": info.get("fiftyTwoWeekLow"),
+            "preco_52s_max": info.get("fiftyTwoWeekHigh"),
+        }
+    except Exception:
+        return vazio
+
+
 def get_dados_fundamentus(ticker: str) -> dict:
     """Retorna indicadores fundamentalistas via fundamentus."""
     vazio = {"pl": None, "dy": None, "pvp": None, "roe": None}
