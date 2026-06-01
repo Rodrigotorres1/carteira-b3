@@ -1,3 +1,4 @@
+import requests
 import yfinance as yf
 
 
@@ -167,3 +168,26 @@ def get_dados_fundamentus(ticker: str) -> dict:
         }
     except Exception:
         return vazio
+
+
+def get_indices_renda_fixa() -> dict:
+    """Busca Selic, CDI e IPCA atuais na API do Banco Central."""
+    fallback = {"selic": 10.5, "cdi": 10.4, "ipca": 5.1, "data_atualizacao": "N/A"}
+    _urls = {
+        "selic": "https://api.bcb.gov.br/dados/serie/bcdata.sgs.11/dados/ultimos/1?formato=json",
+        "cdi":   "https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json",
+        "ipca":  "https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados/ultimos/1?formato=json",
+    }
+    try:
+        resultados = {}
+        data_atualizacao = "N/A"
+        for chave, url in _urls.items():
+            resp = requests.get(url, timeout=5)
+            resp.raise_for_status()
+            item = resp.json()[0]
+            resultados[chave] = float(item["valor"])
+            if chave == "selic":
+                data_atualizacao = item["data"]
+        return {**resultados, "data_atualizacao": data_atualizacao}
+    except Exception:
+        return fallback

@@ -1,9 +1,12 @@
 import json
 from pathlib import Path
 
+from datetime import date
+
 from utils.market_data import (
     get_dados_fundamentus,
     get_dados_yfinance_fii,
+    get_indices_renda_fixa,
     get_preco_atual,
     get_recomendacoes_analistas,
 )
@@ -339,6 +342,44 @@ def calcular_score_acao(
     )
 
     return {"score": total, "label": label, "cor": cor, "fatores": fatores, "resumo": resumo}
+
+
+def calcular_renda_fixa() -> list[dict]:
+    """Retorna ativos de renda fixa enriquecidos com status de vencimento."""
+    indices = get_indices_renda_fixa()
+    rentabilidade_estimada = indices["selic"]
+    hoje = date.today()
+    resultado = []
+
+    for ativo in get_ativos_por_classe("Renda Fixa"):
+        vencimento_str = ativo.get("vencimento")
+        dias = None
+        status = "Sem vencimento"
+
+        if vencimento_str:
+            try:
+                dia, mes, ano = vencimento_str.split("/")
+                venc = date(int(ano), int(mes), int(dia))
+                dias = (venc - hoje).days
+                if dias <= 0:
+                    status = "Vencido"
+                elif dias <= 90:
+                    status = "Vence em breve"
+                elif dias <= 365:
+                    status = "Vence em 1 ano"
+                else:
+                    status = "Longo prazo"
+            except Exception:
+                pass
+
+        resultado.append({
+            **ativo,
+            "dias_para_vencer": dias,
+            "status_vencimento": status,
+            "rentabilidade_estimada_anual": rentabilidade_estimada,
+        })
+
+    return resultado
 
 
 def calcular_alocacao_atual() -> dict[str, float]:
