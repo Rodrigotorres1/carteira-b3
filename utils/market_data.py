@@ -200,3 +200,95 @@ def get_indices_renda_fixa() -> dict:
         return {**resultados, "data_atualizacao": data_atualizacao}
     except Exception:
         return fallback
+
+
+def get_dados_bitcoin() -> dict | None:
+    """Retorna preço atual, variações e histórico do Bitcoin em USD."""
+    try:
+        ativo = yf.Ticker("BTC-USD")
+        fi = ativo.fast_info
+        hist = ativo.history(period="1y")
+
+        preco_atual = float(fi.last_price)
+        preco_anterior = float(fi.previous_close)
+        variacao_diaria = ((preco_atual - preco_anterior) / preco_anterior) * 100
+
+        closes = hist["Close"]
+        preco_7d = float(closes.iloc[-7]) if len(closes) >= 7 else None
+        preco_30d = float(closes.iloc[-30]) if len(closes) >= 30 else None
+
+        return {
+            "preco_atual_usd": preco_atual,
+            "preco_anterior_usd": preco_anterior,
+            "variacao_diaria_pct": variacao_diaria,
+            "historico": hist,
+            "preco_7d_atras": preco_7d,
+            "preco_30d_atras": preco_30d,
+            "variacao_7d_pct": ((preco_atual - preco_7d) / preco_7d * 100) if preco_7d else None,
+            "variacao_30d_pct": ((preco_atual - preco_30d) / preco_30d * 100) if preco_30d else None,
+        }
+    except Exception:
+        return None
+
+
+def get_dados_alternativos() -> dict | None:
+    """Retorna preço e variações de Bitcoin, Ouro e Prata em USD."""
+    _tickers = {"Bitcoin": "BTC-USD", "Ouro": "GC=F", "Prata": "SI=F"}
+    try:
+        dados = yf.download(
+            list(_tickers.values()), period="1y",
+            auto_adjust=True, progress=False,
+        )
+        closes = dados["Close"].dropna()
+        resultado = {}
+        for nome, ticker in _tickers.items():
+            serie = closes[ticker].dropna()
+            if len(serie) < 2:
+                continue
+            preco = float(serie.iloc[-1])
+            resultado[nome] = {
+                "preco_atual": preco,
+                "variacao_1d":  ((preco / float(serie.iloc[-2])) - 1) * 100 if len(serie) >= 2 else None,
+                "variacao_7d":  ((preco / float(serie.iloc[-7])) - 1) * 100 if len(serie) >= 7 else None,
+                "variacao_30d": ((preco / float(serie.iloc[-30])) - 1) * 100 if len(serie) >= 30 else None,
+                "variacao_12m": ((preco / float(serie.iloc[0])) - 1) * 100,
+                "historico_normalizado": serie / float(serie.iloc[0]) * 100,
+            }
+        return resultado if resultado else None
+    except Exception:
+        return None
+
+
+def get_cotacao_dolar() -> float:
+    """Retorna a cotação atual do dólar em reais."""
+    try:
+        preco = yf.Ticker("USDBRL=X").fast_info.last_price
+        return float(preco)
+    except Exception:
+        return 5.70
+
+
+def get_correlacao_btc_ibov() -> dict | None:
+    """Calcula correlação e performance comparada de BTC vs Ibovespa em 12 meses."""
+    try:
+        dados = yf.download(["BTC-USD", "^BVSP"], period="1y", auto_adjust=True, progress=False)
+        closes = dados["Close"].dropna()
+
+        retornos = closes.pct_change().dropna()
+        correlacao = float(retornos["BTC-USD"].corr(retornos["^BVSP"]))
+
+        perf_btc = ((closes["BTC-USD"].iloc[-1] / closes["BTC-USD"].iloc[0]) - 1) * 100
+        perf_ibov = ((closes["^BVSP"].iloc[-1] / closes["^BVSP"].iloc[0]) - 1) * 100
+
+        normalizado = closes.copy()
+        normalizado["BTC"] = normalizado["BTC-USD"] / normalizado["BTC-USD"].iloc[0] * 100
+        normalizado["IBOV"] = normalizado["^BVSP"] / normalizado["^BVSP"].iloc[0] * 100
+
+        return {
+            "correlacao": correlacao,
+            "perf_btc_12m": float(perf_btc),
+            "perf_ibov_12m": float(perf_ibov),
+            "historico_normalizado": normalizado[["BTC", "IBOV"]],
+        }
+    except Exception:
+        return None
