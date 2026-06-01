@@ -58,6 +58,11 @@ def calcular_carteira() -> list[dict]:
     return resultado
 
 
+def get_ativos_por_classe(classe: str) -> list:
+    """Retorna lista de ativos filtrados pela classe informada."""
+    return [a for a in get_ativos() if a["classe"] == classe]
+
+
 def calcular_alocacao_atual() -> dict[str, float]:
     """Retorna percentual do valor total por classe de ativo."""
     carteira = calcular_carteira()
