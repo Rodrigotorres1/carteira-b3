@@ -202,10 +202,26 @@ def get_indices_renda_fixa() -> dict:
         return fallback
 
 
-def get_dados_bitcoin() -> dict | None:
-    """Retorna preço atual, variações e histórico do Bitcoin em USD."""
+def detectar_moeda(ticker: str) -> str:
+    """Retorna 'USD' para tickers sem sufixo .SA, 'BRL' para os demais."""
+    t = ticker.upper()
+    if t.endswith("-USD") or t.endswith("=F"):
+        return "USD"
+    return "BRL"
+
+
+def detectar_casas_decimais(ticker: str) -> int:
+    """Retorna 8 casas para criptos, 2 para demais alternativos."""
+    t = ticker.upper()
+    if "BTC" in t or "ETH" in t:
+        return 8
+    return 2
+
+
+def get_dados_ativo_alternativo(ticker: str) -> dict | None:
+    """Retorna preço atual, variações e histórico de um ativo alternativo."""
     try:
-        ativo = yf.Ticker("BTC-USD")
+        ativo = yf.Ticker(ticker)
         fi = ativo.fast_info
         hist = ativo.history(period="1y")
 
@@ -218,12 +234,10 @@ def get_dados_bitcoin() -> dict | None:
         preco_30d = float(closes.iloc[-30]) if len(closes) >= 30 else None
 
         return {
-            "preco_atual_usd": preco_atual,
-            "preco_anterior_usd": preco_anterior,
+            "preco_atual": preco_atual,
+            "preco_anterior": preco_anterior,
             "variacao_diaria_pct": variacao_diaria,
             "historico": hist,
-            "preco_7d_atras": preco_7d,
-            "preco_30d_atras": preco_30d,
             "variacao_7d_pct": ((preco_atual - preco_7d) / preco_7d * 100) if preco_7d else None,
             "variacao_30d_pct": ((preco_atual - preco_30d) / preco_30d * 100) if preco_30d else None,
         }
@@ -268,27 +282,27 @@ def get_cotacao_dolar() -> float:
         return 5.70
 
 
-def get_correlacao_btc_ibov() -> dict | None:
-    """Calcula correlação e performance comparada de BTC vs Ibovespa em 12 meses."""
+def get_correlacao_com_ibov(ticker: str) -> dict | None:
+    """Calcula correlação e performance comparada de um ativo vs Ibovespa em 12 meses."""
     try:
-        dados = yf.download(["BTC-USD", "^BVSP"], period="1y", auto_adjust=True, progress=False)
+        dados = yf.download([ticker, "^BVSP"], period="1y", auto_adjust=True, progress=False)
         closes = dados["Close"].dropna()
 
         retornos = closes.pct_change().dropna()
-        correlacao = float(retornos["BTC-USD"].corr(retornos["^BVSP"]))
+        correlacao = float(retornos[ticker].corr(retornos["^BVSP"]))
 
-        perf_btc = ((closes["BTC-USD"].iloc[-1] / closes["BTC-USD"].iloc[0]) - 1) * 100
+        perf_ativo = ((closes[ticker].iloc[-1] / closes[ticker].iloc[0]) - 1) * 100
         perf_ibov = ((closes["^BVSP"].iloc[-1] / closes["^BVSP"].iloc[0]) - 1) * 100
 
         normalizado = closes.copy()
-        normalizado["BTC"] = normalizado["BTC-USD"] / normalizado["BTC-USD"].iloc[0] * 100
+        normalizado["Ativo"] = normalizado[ticker] / normalizado[ticker].iloc[0] * 100
         normalizado["IBOV"] = normalizado["^BVSP"] / normalizado["^BVSP"].iloc[0] * 100
 
         return {
             "correlacao": correlacao,
-            "perf_btc_12m": float(perf_btc),
+            "perf_ativo_12m": float(perf_ativo),
             "perf_ibov_12m": float(perf_ibov),
-            "historico_normalizado": normalizado[["BTC", "IBOV"]],
+            "historico_normalizado": normalizado[["Ativo", "IBOV"]],
         }
     except Exception:
         return None

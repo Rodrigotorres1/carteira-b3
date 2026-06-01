@@ -36,6 +36,14 @@ visando estágio em Data Science.
 - Mensagem em português
 - Um commit por etapa concluída
 
+## Ativos Alternativos
+- Cotados em USD: tickers sem sufixo .SA (ex: BTC-USD, GC=F, SI=F)
+  Converter para BRL multiplicando pela cotação do dólar (get_cotacao_dolar())
+- Cotados em BRL: tickers com sufixo .SA (ex: GOLD11, BOVA11)
+  Usar preço diretamente sem conversão
+- A função detectar_moeda(ticker) decide automaticamente qual lógica aplicar
+- A função detectar_casas_decimais(ticker) retorna 8 para criptos (BTC/ETH), 2 para demais
+
 ## O que evitar
 - Não usar st.experimental_ (APIs depreciadas)
 - Não instalar bibliotecas fora do requirements.txt sem avisar
