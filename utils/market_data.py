@@ -336,7 +336,7 @@ def get_contexto_macro() -> dict:
             f"Ibovespa acumula {ibov_no_ano:+.1f}% no ano, "
             f"momento {momento_bolsa.lower()} para a bolsa. "
             f"VIX em {vix:.1f} indica risco global {nivel_risco.lower()}. "
-            f"Dólar a R\$ {dolar:.2f}."
+            f"Dólar a R$ {dolar:.2f}."
         )
 
         return {
@@ -373,7 +373,15 @@ def get_preco_entrada_saida(ticker: str, classe: str) -> dict:
 
         targets = ativo_yf.analyst_price_targets
         preco_alvo = float(targets.get("mean")) if isinstance(targets, dict) and targets.get("mean") else None
-        num_analistas = int(targets.get("numberOfAnalysts", 0)) if isinstance(targets, dict) else 0
+        if isinstance(targets, dict):
+            num_analistas = int(
+                targets.get("numberOfAnalysts")
+                or targets.get("number_of_analysts")
+                or targets.get("count")
+                or 0
+            )
+        else:
+            num_analistas = 0
 
         fund = get_dados_fundamentus(ticker) if classe == "Ações" else {"pl": None, "dy": None}
 
@@ -381,12 +389,12 @@ def get_preco_entrada_saida(ticker: str, classe: str) -> dict:
         if preco_alvo:
             upside = ((preco_alvo - preco_atual) / preco_atual) * 100
             if upside > 5:
-                entrada_texto = f"Até R\$ {preco_atual * 1.03:.2f} (3% acima do atual)"
+                entrada_texto = f"Até R$ {preco_atual * 1.03:.2f} (3% acima do atual)"
             else:
                 entrada_texto = "Aguardar correção"
         elif fund.get("pl") and fund["pl"] > 0:
             entrada_texto = (
-                f"Até R\$ {preco_atual * 1.05:.2f} (P/L atrativo)"
+                f"Até R$ {preco_atual * 1.05:.2f} (P/L atrativo)"
                 if fund["pl"] < 15
                 else "Aguardar melhor ponto de entrada"
             )
@@ -397,12 +405,15 @@ def get_preco_entrada_saida(ticker: str, classe: str) -> dict:
 
         # Saída
         if preco_alvo:
-            saida_texto = f"R\$ {preco_alvo:.2f} (preço alvo médio de {num_analistas} analistas)"
+            if num_analistas > 0:
+                saida_texto = f"R$ {preco_alvo:.2f} (preço alvo médio de {num_analistas} analistas)"
+            else:
+                saida_texto = f"R$ {preco_alvo:.2f} (preço alvo dos analistas)"
         elif fund.get("pl") and fund["pl"] > 0:
             pl_alvo = 20
             lpa = preco_atual / fund["pl"]
             preco_justo = lpa * pl_alvo
-            saida_texto = f"R\$ {preco_justo:.2f} (baseado em P/L alvo de {pl_alvo}x)"
+            saida_texto = f"R$ {preco_justo:.2f} (baseado em P/L alvo de {pl_alvo}x)"
         else:
             saida_texto = "Consulte sua corretora"
 
@@ -414,17 +425,17 @@ def get_preco_entrada_saida(ticker: str, classe: str) -> dict:
                 if pvp < 1.0:
                     preco_patrimonial = preco_atual / pvp
                     entrada_texto = (
-                        f"Até R\$ {preco_atual * 1.02:.2f} "
+                        f"Até R$ {preco_atual * 1.02:.2f} "
                         f"(P/VP de {pvp:.2f}, abaixo do patrimônio)"
                     )
                     saida_texto = (
-                        f"R\$ {preco_patrimonial:.2f} "
+                        f"R$ {preco_patrimonial:.2f} "
                         f"(cota patrimonial, P/VP = 1.0)"
                     )
                 elif pvp < 1.1:
                     entrada_texto = "Preço próximo do justo, aguardar correção"
                     saida_texto = (
-                        f"R\$ {preco_atual * 1.08:.2f} "
+                        f"R$ {preco_atual * 1.08:.2f} "
                         f"(estimativa +8% sobre preço atual)"
                     )
                 else:

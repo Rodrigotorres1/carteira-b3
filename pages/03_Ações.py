@@ -2,7 +2,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from utils.market_data import get_dados_acao
+from utils.market_data import get_dados_acao, get_dados_fundamentus
 from utils.portfolio import calcular_score_acao, get_ativos_por_classe
 from utils.profile import get_profile
 
@@ -40,6 +40,8 @@ for ativo in acoes:
             continue
 
         hist = dados["historico"]
+        fund = get_dados_fundamentus(ticker)
+        dy = fund.get("dy") if fund else None
 
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Preço atual", _fmt_brl(dados["preco_atual"]))
@@ -48,7 +50,7 @@ for ativo in acoes:
             f"{dados['variacao_pct']:+.2f}%",
             delta=f"{dados['variacao_pct']:.2f}%",
         )
-        col3.metric("Dividend Yield", f"{dados['dividend_yield']:.2f}%")
+        col3.metric("Dividend Yield", f"{dy:.1f}%" if dy else "—")
         col4.metric("P/L", f"{dados['pl']:.1f}" if dados["pl"] else "—")
 
         resultado = calcular_score_acao(
@@ -98,7 +100,7 @@ for ativo in acoes:
             "Ticker": ticker,
             "Preço Atual": f"R$ {dados['preco_atual']:.2f}",
             "Variação %": f"{dados['variacao_pct']:+.2f}%",
-            "DY %": f"{dados['dividend_yield']:.2f}%",
+            "DY %": f"{dy:.1f}%" if dy else "—",
             "P/L": f"{dados['pl']:.1f}" if dados["pl"] else "—",
             "Score": label,
         })
