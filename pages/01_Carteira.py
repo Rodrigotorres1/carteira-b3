@@ -24,10 +24,34 @@ if classe == "Renda Fixa":
     )
 
 with st.form("form_add_ativo", clear_on_submit=True):
-    if classe in ("Ações", "FIIs"):
+    if classe == "Ações":
         identificador = st.text_input("Ticker", placeholder="Ex: BBAS3")
         quantidade = st.number_input("Quantidade", min_value=1, step=1, value=1)
         preco_medio = st.number_input("Preço Médio por cota (R$)", min_value=0.01, format="%.2f", value=0.01)
+        vencimento = None
+        data_aplicacao = None
+        taxa = None
+        pvp = None
+
+    elif classe == "FIIs":
+        identificador = st.text_input("Ticker", placeholder="Ex: KNRI11")
+        quantidade = st.number_input("Quantidade", min_value=1, step=1, value=1)
+        preco_medio = st.number_input("Preço Médio por cota (R$)", min_value=0.01, format="%.2f", value=0.01)
+        pvp = st.number_input(
+            "P/VP atual",
+            min_value=0.01, max_value=5.0, step=0.01, format="%.2f", value=1.0,
+            help="Valor Patrimonial por Cota. Consulte na sua corretora ou no Funds Explorer.",
+        )
+        if pvp < 0.95:
+            _pvp_cor, _pvp_txt = "#00A878", "Abaixo do patrimônio: desconto interessante"
+        elif pvp <= 1.05:
+            _pvp_cor, _pvp_txt = "#888888", "Próximo do valor patrimonial: preço justo"
+        elif pvp <= 1.20:
+            _pvp_cor, _pvp_txt = "#FFC107", "Acima do patrimônio: atenção ao preço de entrada"
+        else:
+            _pvp_cor, _pvp_txt = "#FF4B4B", "Prêmio elevado sobre o patrimônio: risco de sobrepreço"
+        st.markdown(f"<span style='color:{_pvp_cor};font-size:0.85rem'>{_pvp_txt}</span>",
+                    unsafe_allow_html=True)
         vencimento = None
         data_aplicacao = None
         taxa = None
@@ -66,6 +90,7 @@ with st.form("form_add_ativo", clear_on_submit=True):
         preco_medio = valor_investido
         vencimento = data_venc.strftime("%d/%m/%Y")
         data_aplicacao = data_aplic.strftime("%d/%m/%Y")
+        pvp = None
 
     else:  # Alternativo
         identificador = st.text_input("Ticker", placeholder="Ex: BTC-USD")
@@ -74,6 +99,7 @@ with st.form("form_add_ativo", clear_on_submit=True):
         vencimento = None
         data_aplicacao = None
         taxa = None
+        pvp = None
 
     submitted = st.form_submit_button("Adicionar")
 
@@ -90,6 +116,7 @@ if submitted:
             data_aplicacao=data_aplicacao,
             tipo_rentabilidade=tipo_rentabilidade,
             taxa=taxa,
+            pvp=pvp,
         )
         st.success(f"{nome.upper()} adicionado com sucesso.")
 
@@ -106,6 +133,7 @@ else:
             "Classe": a["classe"],
             "Quantidade": a["quantidade"],
             "Preço Médio": a["preco_medio"],
+            "P/VP": f"{a['pvp']:.2f}" if a.get("pvp") is not None else "-",
             "Vencimento": a.get("vencimento", "-"),
             "Data Aplicação": a.get("data_aplicacao", "-"),
             "Tipo": a.get("tipo_rentabilidade", "-"),

@@ -122,13 +122,17 @@ def get_dados_fii(ticker: str) -> dict | None:
 
 
 def get_dados_yfinance_fii(ticker: str) -> dict:
-    """Retorna indicadores de mercado de um FII via yfinance."""
+    """Retorna indicadores de mercado de um FII via yfinance.
+
+    Se pvp não disponível no yfinance, usa o valor cadastrado pelo usuário.
+    """
     vazio = {
         "dy_anual": None, "dy_mensal": None, "dividend_rate": None,
         "pvp": None, "liquidez": None,
         "preco_52s_min": None, "preco_52s_max": None,
     }
     try:
+        from utils.portfolio import get_ativos
         info = yf.Ticker(ticker + ".SA").info
 
         dy_raw = info.get("dividendYield")
@@ -138,11 +142,16 @@ def get_dados_yfinance_fii(ticker: str) -> dict:
             dy_anual = None
         dy_mensal = round(dy_anual / 12, 4) if dy_anual is not None else None
 
+        pvp_cadastro = next(
+            (a.get("pvp") for a in get_ativos() if a["ticker"] == ticker.upper()),
+            None,
+        )
+
         return {
             "dy_anual": dy_anual,
             "dy_mensal": dy_mensal,
             "dividend_rate": info.get("dividendRate"),
-            "pvp": None,
+            "pvp": pvp_cadastro,
             "liquidez": info.get("averageVolume"),
             "preco_52s_min": info.get("fiftyTwoWeekLow"),
             "preco_52s_max": info.get("fiftyTwoWeekHigh"),
@@ -306,3 +315,132 @@ def get_correlacao_com_ibov(ticker: str) -> dict | None:
         }
     except Exception:
         return None
+
+
+def get_contexto_macro() -> dict:
+    """Retorna indicadores macroeconômicos atuais com classificações qualitativas."""
+    try:
+        selic = get_indices_renda_fixa()["selic"]
+        vix = float(yf.Ticker("^VIX").fast_info.last_price)
+        dolar = get_cotacao_dolar()
+
+        hist_ibov = yf.Ticker("^BVSP").history(period="ytd")
+        ibov_no_ano = ((hist_ibov["Close"].iloc[-1] / hist_ibov["Close"].iloc[0]) - 1) * 100
+
+        nivel_risco = "Alto" if vix > 30 else ("Moderado" if vix > 20 else "Baixo")
+        atratividade_rf = "Alta" if selic > 13 else ("Moderada" if selic > 10 else "Baixa")
+        momento_bolsa = "Favorável" if ibov_no_ano > 10 else ("Neutro" if ibov_no_ano > 0 else "Desfavorável")
+
+        resumo_macro = (
+            f"Selic em {selic:.1f}% a.a. torna a renda fixa {atratividade_rf.lower()}. "
+            f"Ibovespa acumula {ibov_no_ano:+.1f}% no ano, "
+            f"momento {momento_bolsa.lower()} para a bolsa. "
+            f"VIX em {vix:.1f} indica risco global {nivel_risco.lower()}. "
+            f"Dólar a R\$ {dolar:.2f}."
+        )
+
+        return {
+            "selic": selic,
+            "vix": vix,
+            "ibov_no_ano": float(ibov_no_ano),
+            "dolar": dolar,
+            "nivel_risco": nivel_risco,
+            "atratividade_renda_fixa": atratividade_rf,
+            "momento_bolsa": momento_bolsa,
+            "resumo_macro": resumo_macro,
+        }
+    except Exception:
+        return {
+            "selic": 13.75, "vix": 18.0, "ibov_no_ano": 0.0, "dolar": 5.70,
+            "nivel_risco": "Moderado", "atratividade_renda_fixa": "Alta",
+            "momento_bolsa": "Neutro",
+            "resumo_macro": "Dados macroeconômicos temporariamente indisponíveis.",
+        }
+
+
+def get_preco_entrada_saida(ticker: str, classe: str) -> dict:
+    """Calcula preços de entrada e saída sugeridos para um ativo."""
+    fallback = {
+        "preco_atual": None, "preco_alvo": None, "upside": None,
+        "num_analistas": 0,
+        "entrada_texto": "Consulte sua corretora",
+        "saida_texto": "Consulte sua corretora",
+    }
+    try:
+        symbol = ticker if classe == "Alternativos" else ticker + ".SA"
+        ativo_yf = yf.Ticker(symbol)
+        preco_atual = float(ativo_yf.fast_info.last_price)
+
+        targets = ativo_yf.analyst_price_targets
+        preco_alvo = float(targets.get("mean")) if isinstance(targets, dict) and targets.get("mean") else None
+        num_analistas = int(targets.get("numberOfAnalysts", 0)) if isinstance(targets, dict) else 0
+
+        fund = get_dados_fundamentus(ticker) if classe == "Ações" else {"pl": None, "dy": None}
+
+        # Entrada
+        if preco_alvo:
+            upside = ((preco_alvo - preco_atual) / preco_atual) * 100
+            if upside > 5:
+                entrada_texto = f"Até R\$ {preco_atual * 1.03:.2f} (3% acima do atual)"
+            else:
+                entrada_texto = "Aguardar correção"
+        elif fund.get("pl") and fund["pl"] > 0:
+            entrada_texto = (
+                f"Até R\$ {preco_atual * 1.05:.2f} (P/L atrativo)"
+                if fund["pl"] < 15
+                else "Aguardar melhor ponto de entrada"
+            )
+            upside = None
+        else:
+            upside = None
+            entrada_texto = "Consulte sua corretora"
+
+        # Saída
+        if preco_alvo:
+            saida_texto = f"R\$ {preco_alvo:.2f} (preço alvo médio de {num_analistas} analistas)"
+        elif fund.get("pl") and fund["pl"] > 0:
+            pl_alvo = 20
+            lpa = preco_atual / fund["pl"]
+            preco_justo = lpa * pl_alvo
+            saida_texto = f"R\$ {preco_justo:.2f} (baseado em P/L alvo de {pl_alvo}x)"
+        else:
+            saida_texto = "Consulte sua corretora"
+
+        # Branch FIIs: complementa ou substitui cálculo via P/VP
+        if classe == "FIIs" and saida_texto == "Consulte sua corretora":
+            fii_fund = get_dados_yfinance_fii(ticker)
+            pvp = fii_fund.get("pvp")
+            if pvp is not None:
+                if pvp < 1.0:
+                    preco_patrimonial = preco_atual / pvp
+                    entrada_texto = (
+                        f"Até R\$ {preco_atual * 1.02:.2f} "
+                        f"(P/VP de {pvp:.2f}, abaixo do patrimônio)"
+                    )
+                    saida_texto = (
+                        f"R\$ {preco_patrimonial:.2f} "
+                        f"(cota patrimonial, P/VP = 1.0)"
+                    )
+                elif pvp < 1.1:
+                    entrada_texto = "Preço próximo do justo, aguardar correção"
+                    saida_texto = (
+                        f"R\$ {preco_atual * 1.08:.2f} "
+                        f"(estimativa +8% sobre preço atual)"
+                    )
+                else:
+                    entrada_texto = "P/VP elevado, aguardar correção"
+                    saida_texto = "Realizar lucro no preço atual"
+
+        if preco_alvo:
+            upside = ((preco_alvo - preco_atual) / preco_atual) * 100
+
+        return {
+            "preco_atual": preco_atual,
+            "preco_alvo": preco_alvo,
+            "upside": upside,
+            "num_analistas": num_analistas,
+            "entrada_texto": entrada_texto,
+            "saida_texto": saida_texto,
+        }
+    except Exception:
+        return fallback

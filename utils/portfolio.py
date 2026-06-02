@@ -41,8 +41,9 @@ def add_ativo(
     data_aplicacao: str | None = None,
     tipo_rentabilidade: str | None = None,
     taxa: float | None = None,
+    pvp: float | None = None,
 ) -> None:
-    """Adiciona ativo à carteira. Campos opcionais de datas e taxa para Renda Fixa."""
+    """Adiciona ativo à carteira. Campos opcionais conforme classe."""
     ativo = {
         "ticker": ticker.upper(),
         "quantidade": quantidade,
@@ -54,6 +55,7 @@ def add_ativo(
         ("data_aplicacao", data_aplicacao),
         ("tipo_rentabilidade", tipo_rentabilidade),
         ("taxa", taxa),
+        ("pvp", pvp),
     ]:
         if valor is not None:
             ativo[chave] = valor
@@ -205,12 +207,44 @@ def calcular_score_fii(
     total += pts_52s
     fatores.append({"nome": "Range de 52 semanas", "pontos": pts_52s, "explicacao": explicacao_52s})
 
-    # Fator 3 — Posição do usuário (peso 1)
+    # Fator 3 — P/VP do usuário (peso 1, quando disponível)
+    pvp = fund.get("pvp")
+    if pvp is not None:
+        PVP_OTIMO = 0.95
+        PVP_BOM = 1.05
+        PVP_CARO = 1.20
+        fonte_pvp = "informado pelo usuário"
+        if pvp <= PVP_OTIMO:
+            pts_pvp = 1
+            explicacao_pvp = (
+                f"P/VP de {pvp:.2f} ({fonte_pvp}): cota negociada com desconto "
+                f"sobre o patrimônio líquido."
+            )
+        elif pvp <= PVP_BOM:
+            pts_pvp = 0
+            explicacao_pvp = (
+                f"P/VP de {pvp:.2f} ({fonte_pvp}): cota próxima do valor patrimonial."
+            )
+        elif pvp <= PVP_CARO:
+            pts_pvp = 0
+            explicacao_pvp = (
+                f"P/VP de {pvp:.2f} ({fonte_pvp}): cota acima do patrimônio. "
+                f"Atenção ao preço."
+            )
+        else:
+            pts_pvp = -1
+            explicacao_pvp = (
+                f"P/VP de {pvp:.2f} ({fonte_pvp}): prêmio elevado sobre o patrimônio."
+            )
+        total += pts_pvp
+        fatores.append({"nome": "P/VP", "pontos": pts_pvp, "explicacao": explicacao_pvp})
+
+    # Fator 4 — Posição do usuário (peso 1)
     fpos = _fator_posicao(preco_atual, preco_medio_usuario)
     total += fpos["pontos"]
     fatores.append(fpos)
 
-    # Fator 4 — Modificador por perfil
+    # Fator 5 — Modificador por perfil
     fperfil = _fator_perfil(perfil)
     if fperfil:
         total += fperfil["pontos"]
