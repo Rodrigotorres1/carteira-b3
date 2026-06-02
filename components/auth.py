@@ -67,31 +67,60 @@ def render_login() -> None:
 
         st.divider()
 
-        with st.expander("Esqueci minha senha"):
-            with st.form("form_reset"):
-                email_reset  = st.text_input("Digite seu email cadastrado")
-                submit_reset = st.form_submit_button(
-                    "Enviar link de redefinição", use_container_width=True
-                )
+        if "reset_email" not in st.session_state:
+            with st.expander("Esqueci minha senha"):
+                with st.form("form_reset_email"):
+                    email_reset = st.text_input("Seu email cadastrado")
+                    submit_reset = st.form_submit_button("Enviar código", use_container_width=True)
 
-                if submit_reset:
-                    if not email_reset:
-                        st.error("Digite seu email.")
-                    else:
-                        from utils.database import resetar_senha
+                    if submit_reset and email_reset:
+                        from utils.database import enviar_otp_reset
                         with st.spinner("Enviando..."):
-                            result = resetar_senha(email_reset)
+                            result = enviar_otp_reset(email_reset)
                         if result["success"]:
-                            st.success(
-                                "Email enviado! Verifique sua caixa "
-                                "de entrada e clique no link para "
-                                "redefinir sua senha."
-                            )
+                            st.session_state["reset_email"] = email_reset
+                            st.rerun()
                         else:
-                            st.error(
-                                "Erro ao enviar email. "
-                                "Verifique se o email está correto."
-                            )
+                            st.error("Email não encontrado.")
+        else:
+            with st.expander("Esqueci minha senha", expanded=True):
+                st.info(f"Código enviado para {st.session_state['reset_email']}")
+
+                with st.form("form_reset_codigo"):
+                    codigo     = st.text_input("Código recebido no email",
+                                               help="Digite o código de 6 dígitos")
+                    nova_senha = st.text_input("Nova senha", type="password")
+                    confirmar  = st.text_input("Confirmar senha", type="password")
+
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        submit   = st.form_submit_button("Confirmar", use_container_width=True)
+                    with col2:
+                        cancelar = st.form_submit_button("Cancelar", use_container_width=True)
+
+                    if cancelar:
+                        st.session_state.pop("reset_email", None)
+                        st.rerun()
+
+                    if submit:
+                        if not codigo or not nova_senha:
+                            st.error("Preencha todos os campos.")
+                        elif nova_senha != confirmar:
+                            st.error("As senhas não coincidem.")
+                        elif len(nova_senha) < 6:
+                            st.error("Mínimo 6 caracteres.")
+                        else:
+                            from utils.database import verificar_otp_e_atualizar_senha
+                            with st.spinner("Verificando..."):
+                                result = verificar_otp_e_atualizar_senha(
+                                    st.session_state["reset_email"], codigo, nova_senha
+                                )
+                            if result["success"]:
+                                st.success("Senha atualizada!")
+                                st.session_state.pop("reset_email", None)
+                                st.rerun()
+                            else:
+                                st.error("Código inválido ou expirado.")
 
     with tab_signup:
         with st.form("form_signup"):
