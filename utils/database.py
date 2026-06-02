@@ -75,7 +75,7 @@ def salvar_dados(dados: dict) -> bool:
             "user_id": user_id,
             "dados": dados,
             "updated_at": "now()",
-        }).execute()
+        }, on_conflict="user_id").execute()
         return True
     except Exception as e:
         st.warning(f"Erro ao salvar dados: {e}")
