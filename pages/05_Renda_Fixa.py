@@ -31,8 +31,23 @@ def _taxa_label(a: dict) -> str:
 
 st.title("Renda Fixa")
 
+ativos = calcular_renda_fixa()
 indices = get_indices_renda_fixa()
 
+# ── Alertas de Vencimento (topo) ──────────────────────────────────────────────
+alertas_criticos = [a for a in ativos if a["status_vencimento"] in ("Vencido", "Vence em breve")]
+if alertas_criticos:
+    st.header("Alertas de Vencimento")
+    for a in alertas_criticos:
+        if a["status_vencimento"] == "Vencido":
+            st.error(f"{a['ticker']}: ativo vencido em {a.get('vencimento', '?')}. Verifique o resgate.")
+        else:
+            st.warning(
+                f"{a['ticker']}: vence em {a['dias_para_vencer']} dia(s) "
+                f"({a.get('vencimento', '?')}). Planeje o resgate ou reinvestimento."
+            )
+
+# ── Índices Atuais ────────────────────────────────────────────────────────────
 st.header("Índices Atuais")
 col1, col2, col3 = st.columns(3)
 col1.metric("Selic", f"{indices['selic']:.2f}% a.a.")
@@ -42,8 +57,8 @@ st.caption(
     f"Fonte: Banco Central do Brasil. Atualizado em {indices['data_atualizacao']}."
 )
 
+# ── Minha Renda Fixa ──────────────────────────────────────────────────────────
 st.header("Minha Renda Fixa")
-ativos = calcular_renda_fixa()
 
 if not ativos:
     st.info("Nenhum ativo de renda fixa cadastrado. Acesse 'Carteira' para adicionar.")
@@ -107,16 +122,7 @@ else:
 
     st.dataframe(df.style.apply(_estilo, axis=1), use_container_width=True, hide_index=True)
 
-    st.header("Alertas de Vencimento")
-    alertas = False
-    for a in ativos:
-        if a["status_vencimento"] == "Vencido":
-            st.error(f"{a['ticker']}: ativo vencido em {a.get('vencimento', '?')}. Verifique o resgate.")
-            alertas = True
-        elif a["status_vencimento"] == "Vence em breve":
-            st.warning(f"{a['ticker']}: vence em {a['dias_para_vencer']} dia(s) ({a.get('vencimento', '?')}). Planeje o resgate ou reinvestimento.")
-            alertas = True
-    if not alertas:
+    if not alertas_criticos:
         st.success("Nenhum vencimento próximo.")
 
     st.header("Comparativo com Benchmarks")

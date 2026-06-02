@@ -260,13 +260,7 @@ def calcular_score_fii(
         total += fperfil["pontos"]
         fatores.append(fperfil)
 
-    if total >= 3:
-        label, cor = "Comprar", "success"
-    elif total >= 1:
-        label, cor = "Manter", "info"
-    else:
-        label, cor = "Vender", "warning"
-
+    label, cor = _score_label(total)
     fator_principal = max(fatores, key=lambda f: abs(f["pontos"]))
     resumo = (
         f"Score total: {total:+d} → **{label}**. "

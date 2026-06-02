@@ -1,6 +1,8 @@
 import pandas as pd
 import streamlit as st
 
+from utils.market_data import get_contexto_macro
+from utils.portfolio import calcular_alocacao_atual, calcular_renda_fixa, get_ativos
 from utils.profile import get_alocacao_alvo, get_profile, profile_exists, save_profile
 
 st.set_page_config(
@@ -73,4 +75,61 @@ elif st.session_state.trocando_perfil:
     )
 else:
     st.title("Carteira B3")
-    st.write("Selecione uma opção no menu lateral para começar.")
+
+    macro = get_contexto_macro()
+    ativos = get_ativos()
+    alocacao_atual = calcular_alocacao_atual()
+    alocacao_alvo = get_alocacao_alvo()
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Ativos cadastrados", len(ativos))
+    m2.metric("Selic a.a.", f"{macro['selic']:.2f}%")
+    m3.metric("IBOV no ano", f"{macro['ibov_no_ano']:+.1f}%")
+    m4.metric("Dólar", f"R$ {macro['dolar']:.2f}")
+
+    st.divider()
+
+    col_aloc, col_alertas = st.columns(2)
+
+    with col_aloc:
+        st.subheader("Alocação Atual")
+        if alocacao_atual:
+            for classe, pct in alocacao_atual.items():
+                st.write(f"{classe}: **{pct:.1f}%**")
+        else:
+            st.info("Cadastre seus ativos para ver a alocação.")
+
+    with col_alertas:
+        st.subheader("Alertas")
+        alertas = []
+
+        _chave_para_classe = {
+            "acoes": "Ações", "fiis": "FIIs",
+            "renda_fixa": "Renda Fixa", "alternativos": "Alternativo",
+        }
+        for chave, classe in _chave_para_classe.items():
+            alvo = alocacao_alvo.get(chave, 0)
+            atual = alocacao_atual.get(classe, 0.0)
+            if abs(atual - alvo) > 5:
+                alertas.append(
+                    f"{classe}: {atual:.1f}% (alvo {alvo:.0f}%) — diferença de {atual - alvo:+.1f}%"
+                )
+
+        try:
+            for a in calcular_renda_fixa():
+                dias = a.get("dias_para_vencer")
+                if dias is not None and dias <= 0:
+                    alertas.append(f"Renda Fixa: **{a['ticker']}** venceu. Verifique o resgate.")
+                elif dias is not None and dias <= 90:
+                    alertas.append(f"Renda Fixa: **{a['ticker']}** vence em {dias} dias.")
+        except Exception:
+            pass
+
+        if alertas:
+            for msg in alertas:
+                st.warning(msg)
+        else:
+            st.success("Tudo em ordem.")
+
+    st.divider()
+    st.caption("Navegue pelo menu lateral para acessar cada painel. Dados atualizados em tempo real.")

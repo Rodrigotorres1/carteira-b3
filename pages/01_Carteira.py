@@ -3,7 +3,7 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
-from utils.portfolio import add_ativo, ativo_existe, get_ativos, remove_ativo
+from utils.portfolio import add_ativo, ativo_existe, fmt_brl, get_ativos, remove_ativo
 
 st.title("Minha Carteira")
 
@@ -97,6 +97,10 @@ with st.form("form_add_ativo", clear_on_submit=True):
 
     else:  # Alternativo
         identificador = st.text_input("Ticker", placeholder="Ex: BTC-USD")
+        st.info(
+            "Tickers suportados: BTC-USD (Bitcoin), GC=F (Ouro), SI=F (Prata). "
+            "Para ETFs brasileiros use o código sem sufixo .SA: GOLD11, BOVA11."
+        )
         quantidade = st.number_input(
             "Quantidade", min_value=0.00000001, format="%.8f", value=0.001,
             help="Para Bitcoin use decimais (ex: 0.01 BTC). Para Ouro use frações de onça (ex: 0.5). Tickers aceitos: BTC-USD, GC=F (Ouro), SI=F (Prata)",
@@ -130,22 +134,65 @@ st.header("Ativos Cadastrados")
 ativos = get_ativos()
 
 if not ativos:
-    st.info("Nenhum ativo cadastrado. Adicione seu primeiro ativo acima.")
+    st.info("Nenhum ativo cadastrado ainda.")
 else:
-    linhas = []
-    for a in ativos:
-        linhas.append({
-            "Ticker": a["ticker"],
-            "Classe": a["classe"],
-            "Quantidade": a["quantidade"],
-            "Preço Médio": a["preco_medio"],
-            "P/VP": f"{a['pvp']:.2f}" if a.get("pvp") is not None else "-",
-            "Vencimento": a.get("vencimento", "-"),
-            "Data Aplicação": a.get("data_aplicacao", "-"),
-            "Tipo": a.get("tipo_rentabilidade", "-"),
-            "Taxa (% a.a.)": a["taxa"] if a.get("taxa") is not None else "-",
-        })
-    st.dataframe(pd.DataFrame(linhas), use_container_width=True, hide_index=True)
+    acoes      = [a for a in ativos if a["classe"] == "Ações"]
+    fiis       = [a for a in ativos if a["classe"] == "FIIs"]
+    renda_fixa = [a for a in ativos if a["classe"] == "Renda Fixa"]
+    alternativos = [a for a in ativos if a["classe"] == "Alternativo"]
+
+    if acoes:
+        st.subheader("Ações")
+        st.dataframe(
+            pd.DataFrame([{
+                "Ticker": a["ticker"],
+                "Quantidade": a["quantidade"],
+                "Preço Médio": fmt_brl(a["preco_medio"]),
+            } for a in acoes]),
+            use_container_width=True, hide_index=True,
+        )
+
+    if fiis:
+        st.subheader("FIIs")
+        st.dataframe(
+            pd.DataFrame([{
+                "Ticker": a["ticker"],
+                "Quantidade": a["quantidade"],
+                "Preço Médio": fmt_brl(a["preco_medio"]),
+                "P/VP": f"{a['pvp']:.2f}" if a.get("pvp") is not None else "-",
+            } for a in fiis]),
+            use_container_width=True, hide_index=True,
+        )
+
+    if renda_fixa:
+        st.subheader("Renda Fixa")
+        st.dataframe(
+            pd.DataFrame([{
+                "Ativo": a["ticker"],
+                "Valor Investido": fmt_brl(a["preco_medio"]),
+                "Data Aplicação": a.get("data_aplicacao", "-"),
+                "Tipo": a.get("tipo_rentabilidade", "-"),
+                "Taxa (% a.a.)": f"{a['taxa']:.1f}%" if a.get("taxa") is not None else "-",
+                "Vencimento": a.get("vencimento", "-"),
+            } for a in renda_fixa]),
+            use_container_width=True, hide_index=True,
+        )
+
+    if alternativos:
+        st.subheader("Alternativos")
+        def _fmt_qtd(a: dict) -> str:
+            t = a["ticker"].upper()
+            casas = 8 if ("BTC" in t or "ETH" in t) else 4
+            return f"{a['quantidade']:.{casas}f}"
+
+        st.dataframe(
+            pd.DataFrame([{
+                "Ticker": a["ticker"],
+                "Quantidade": _fmt_qtd(a),
+                "Preço Médio": fmt_brl(a["preco_medio"]),
+            } for a in alternativos]),
+            use_container_width=True, hide_index=True,
+        )
 
     tickers_cadastrados = [a["ticker"] for a in ativos]
     ticker_remover = st.selectbox("Selecione o ativo para remover", tickers_cadastrados)

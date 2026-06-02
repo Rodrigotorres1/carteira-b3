@@ -150,9 +150,13 @@ else:
                 r1.metric(f"Performance {ticker} 12m", f"{corr_dados['perf_ativo_12m']:+.1f}%")
                 r2.metric("Performance IBOV 12m", f"{corr_dados['perf_ibov_12m']:+.1f}%")
 
-# ── Comparativo com Alternativos (dados de mercado fixos) ─────────────────────
+# ── Comparativo com Alternativos ─────────────────────────────────────────────
 st.header("Comparativo com Outros Alternativos")
-alt = get_dados_alternativos()
+if not ativos:
+    st.info("Cadastre um ativo alternativo para ver o comparativo de mercado.")
+    alt = None
+else:
+    alt = get_dados_alternativos()
 
 if alt is None:
     st.warning("Não foi possível obter dados comparativos.")

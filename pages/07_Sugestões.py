@@ -38,10 +38,9 @@ _ATIVOS_DOLAR = {"VALE3", "PRIO3", "BTC-USD", "GC=F", "SMTO3"}
 
 st.title("Sugestões de Ativos")
 
-st.warning(
-    "As sugestões abaixo são baseadas no perfil e objetivo selecionado. "
-    "Não constituem recomendação de investimento. "
-    "Consulte um assessor de investimentos certificado (AAI)."
+st.caption(
+    "Sugestões baseadas em perfil e dados públicos. "
+    "Não são recomendação de investimento."
 )
 
 perfil = get_profile()
@@ -207,3 +206,10 @@ for i, classe in enumerate(_ORDEM_CLASSES):
             else:
                 if st.button("Adicionar à watchlist", key=f"add_{ticker}_{objetivo_chave}"):
                     st.toast("Em breve: funcionalidade de watchlist")
+
+st.divider()
+st.warning(
+    "As sugestões acima são baseadas no perfil e objetivo selecionado. "
+    "Não constituem recomendação de investimento. "
+    "Consulte um assessor de investimentos certificado (AAI)."
+)

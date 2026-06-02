@@ -98,6 +98,8 @@ for _, row in df.iterrows():
 
 if not alertas:
     st.success("Carteira equilibrada — todas as classes dentro da faixa de 3% do alvo.")
+else:
+    st.info("Veja sugestões de ativos para rebalancear sua carteira na página **Sugestões**.")
 
 st.header("Distribuição da Carteira")
 classes_relevantes = [k for k, v in alocacao_alvo.items() if v > 0]
