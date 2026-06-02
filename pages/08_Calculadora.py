@@ -5,6 +5,11 @@ import streamlit as st
 from utils.market_data import get_preco_atual
 from utils.portfolio import fmt_brl, get_ativos
 
+from utils.database import is_authenticated
+if not is_authenticated():
+    st.warning("Você precisa estar logado para acessar esta página.")
+    st.stop()
+
 
 def _brl(v: float) -> str:
     """fmt_brl com $ escapado para uso em contextos markdown do Streamlit."""

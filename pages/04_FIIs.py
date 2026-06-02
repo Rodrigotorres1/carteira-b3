@@ -6,6 +6,11 @@ from utils.market_data import get_dados_fii, get_dados_yfinance_fii
 from utils.portfolio import calcular_score_fii, fmt_brl, get_ativos_por_classe
 from utils.profile import get_profile
 
+from utils.database import is_authenticated
+if not is_authenticated():
+    st.warning("Você precisa estar logado para acessar esta página.")
+    st.stop()
+
 st.title("Painel de FIIs")
 
 fiis = get_ativos_por_classe("FIIs")

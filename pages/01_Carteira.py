@@ -6,6 +6,11 @@ import streamlit as st
 from utils.market_data import get_preco_atual
 from utils.portfolio import add_ativo, ativo_existe, editar_ativo, fmt_brl, get_ativos, get_watchlist, remove_ativo, remove_watchlist
 
+from utils.database import is_authenticated
+if not is_authenticated():
+    st.warning("Você precisa estar logado para acessar esta página.")
+    st.stop()
+
 # ── Mensagens de feedback ────────────────────────────────────────────────────
 if "msg_remocao" in st.session_state:
     st.success(st.session_state.pop("msg_remocao"))

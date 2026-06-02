@@ -5,6 +5,11 @@ import streamlit as st
 from utils.market_data import get_dividendos_ativo, get_proximo_dividendo
 from utils.portfolio import fmt_brl, get_ativos_por_classe
 
+from utils.database import is_authenticated
+if not is_authenticated():
+    st.warning("Você precisa estar logado para acessar esta página.")
+    st.stop()
+
 
 def _brl(v: float) -> str:
     return fmt_brl(v).replace("$", r"\$")

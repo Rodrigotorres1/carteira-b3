@@ -14,13 +14,16 @@ from utils.portfolio import (
 )
 from utils.profile import get_alocacao_alvo, get_profile, profile_exists, save_profile
 
+_autenticado = is_authenticated()
+
 st.set_page_config(
     page_title="Carteira B3",
     page_icon="📊",
     layout="wide",
+    initial_sidebar_state="collapsed" if not _autenticado else "auto",
 )
 
-if not is_authenticated():
+if not _autenticado:
     render_login()
     st.stop()
 

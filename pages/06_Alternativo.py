@@ -12,6 +12,11 @@ from utils.market_data import (
 )
 from utils.portfolio import fmt_brl as _fmt_brl, get_ativos_por_classe
 
+from utils.database import is_authenticated
+if not is_authenticated():
+    st.warning("Você precisa estar logado para acessar esta página.")
+    st.stop()
+
 
 def _fmt_usd(v: float) -> str:
     return f"$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")

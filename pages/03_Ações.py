@@ -6,6 +6,11 @@ from utils.market_data import get_dados_acao, get_dados_fundamentus
 from utils.portfolio import calcular_score_acao, fmt_brl, get_ativos_por_classe
 from utils.profile import get_profile
 
+from utils.database import is_authenticated
+if not is_authenticated():
+    st.warning("Você precisa estar logado para acessar esta página.")
+    st.stop()
+
 st.title("Painel de Ações")
 
 acoes = get_ativos_por_classe("Ações")

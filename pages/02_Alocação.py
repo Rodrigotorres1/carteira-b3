@@ -5,6 +5,11 @@ import streamlit as st
 from utils.portfolio import calcular_alocacao_atual, calcular_carteira, fmt_brl
 from utils.profile import get_alocacao_alvo, get_profile
 
+from utils.database import is_authenticated
+if not is_authenticated():
+    st.warning("Você precisa estar logado para acessar esta página.")
+    st.stop()
+
 CLASSES_PADRAO = ["Ações", "FIIs", "Renda Fixa", "Alternativo"]
 
 _CLASSE_PARA_CHAVE = {

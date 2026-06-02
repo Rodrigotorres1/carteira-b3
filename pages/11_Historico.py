@@ -11,6 +11,11 @@ from utils.portfolio import (
     salvar_snapshot_patrimonio,
 )
 
+from utils.database import is_authenticated
+if not is_authenticated():
+    st.warning("Você precisa estar logado para acessar esta página.")
+    st.stop()
+
 st.title("Histórico de Patrimônio")
 st.caption("Evolução real do seu patrimônio ao longo do tempo.")
 

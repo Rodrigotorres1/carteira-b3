@@ -11,6 +11,11 @@ from utils.portfolio import add_watchlist, get_ativos, ticker_na_watchlist
 from utils.profile import get_profile
 from utils.sugestoes import agrupar_por_classe, get_objetivo_combinado, get_sugestoes
 
+from utils.database import is_authenticated
+if not is_authenticated():
+    st.warning("Você precisa estar logado para acessar esta página.")
+    st.stop()
+
 
 @st.cache_data(ttl=300)
 def _buscar_dados_sugestao(ticker: str, classe: str) -> dict:
