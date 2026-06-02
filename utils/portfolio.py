@@ -29,6 +29,10 @@ def fmt_brl(valor: float | None) -> str:
 
 
 def _load() -> dict:
+    if not _DATA_PATH.exists():
+        _DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _dump({})
+        return {}
     with open(_DATA_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
