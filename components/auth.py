@@ -1,18 +1,6 @@
 import streamlit as st
 
-from utils.database import get_supabase_client, login, signup
-
-
-def get_google_login_url() -> str | None:
-    try:
-        supabase = get_supabase_client()
-        result = supabase.auth.sign_in_with_oauth({
-            "provider": "google",
-            "options": {"redirect_to": "https://carteira-b3.streamlit.app"},
-        })
-        return result.url
-    except Exception:
-        return None
+from utils.database import login, signup
 
 
 def render_login() -> None:
@@ -20,11 +8,6 @@ def render_login() -> None:
     st.caption("Gerencie seus investimentos com inteligência.")
 
     st.divider()
-
-    google_url = get_google_login_url()
-    if google_url:
-        st.link_button("Entrar com Google", google_url, use_container_width=True)
-        st.divider()
 
     tab_login, tab_signup = st.tabs(["Entrar", "Criar conta"])
 

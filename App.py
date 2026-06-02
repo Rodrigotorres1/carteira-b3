@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 from components.auth import render_login
-from utils.database import is_authenticated, logout, recuperar_sessao_url
+from utils.database import is_authenticated, logout
 from utils.market_data import get_contexto_macro
 from utils.market_data import get_preco_atual
 from utils.portfolio import (
@@ -13,9 +13,6 @@ from utils.portfolio import (
     salvar_snapshot_patrimonio,
 )
 from utils.profile import get_alocacao_alvo, get_profile, profile_exists, save_profile
-
-if not is_authenticated():
-    recuperar_sessao_url()
 
 _autenticado = is_authenticated()
 
