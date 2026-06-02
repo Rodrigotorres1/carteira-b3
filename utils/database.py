@@ -50,6 +50,18 @@ def logout() -> None:
     st.session_state.pop("session", None)
 
 
+def resetar_senha(email: str) -> dict:
+    try:
+        supabase = get_supabase_client()
+        supabase.auth.reset_password_email(
+            email,
+            options={"redirect_to": "https://carteira-b3.streamlit.app"},
+        )
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 def carregar_dados() -> dict:
     user_id = get_user_id()
     if not user_id:

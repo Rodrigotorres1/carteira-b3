@@ -37,6 +37,34 @@ def render_login() -> None:
                         else:
                             st.error(f"Erro ao entrar: {erro}")
 
+        st.divider()
+
+        with st.expander("Esqueci minha senha"):
+            with st.form("form_reset"):
+                email_reset  = st.text_input("Digite seu email cadastrado")
+                submit_reset = st.form_submit_button(
+                    "Enviar link de redefinição", use_container_width=True
+                )
+
+                if submit_reset:
+                    if not email_reset:
+                        st.error("Digite seu email.")
+                    else:
+                        from utils.database import resetar_senha
+                        with st.spinner("Enviando..."):
+                            result = resetar_senha(email_reset)
+                        if result["success"]:
+                            st.success(
+                                "Email enviado! Verifique sua caixa "
+                                "de entrada e clique no link para "
+                                "redefinir sua senha."
+                            )
+                        else:
+                            st.error(
+                                "Erro ao enviar email. "
+                                "Verifique se o email está correto."
+                            )
+
     with tab_signup:
         with st.form("form_signup"):
             email_new    = st.text_input("Email")
