@@ -17,8 +17,10 @@ st.caption("Projete o crescimento do seu patrimônio com aportes regulares.")
 # ── Parâmetros ────────────────────────────────────────────────────────────────
 st.subheader("Configurar Simulação")
 
-carteira = calcular_carteira()
-patrimonio_carteira = sum(a["valor_atual"] for a in carteira) if carteira else 0.0
+if "patrimonio_inicial" not in st.session_state:
+    carteira = calcular_carteira()
+    total = sum(a.get("valor_atual", 0) for a in carteira) if carteira else 0.0
+    st.session_state["patrimonio_inicial"] = total
 
 indices = get_indices_renda_fixa()
 cdi = indices["cdi"]
@@ -27,7 +29,12 @@ col_esq, col_dir = st.columns(2)
 
 with col_esq:
     patrimonio_inicial = st.number_input(
-        "Patrimônio atual (R$)", min_value=0.0, format="%.2f", value=float(patrimonio_carteira),
+        "Patrimônio atual (R$)",
+        min_value=0.0,
+        value=st.session_state["patrimonio_inicial"],
+        step=100.0,
+        format="%.2f",
+        key="patrimonio_inicial",
     )
     aporte_mensal = st.number_input(
         "Aporte mensal (R$)", min_value=0.0, format="%.2f", value=500.0,
@@ -41,16 +48,24 @@ with col_dir:
         ["Conservador (CDI)", "Moderado (CDI + 2%)", "Arrojado (CDI + 5%)", "Personalizado"],
     )
 
-    if perfil_retorno == "Personalizado":
-        taxa_anual = st.number_input(
-            "Taxa anual esperada (%)", min_value=0.1, max_value=50.0, format="%.1f", value=12.0,
-        )
-    elif perfil_retorno == "Conservador (CDI)":
-        taxa_anual = cdi
+    if perfil_retorno == "Conservador (CDI)":
+        taxa_calculada = cdi
     elif perfil_retorno == "Moderado (CDI + 2%)":
-        taxa_anual = cdi + 2
-    else:  # Arrojado
-        taxa_anual = cdi + 5
+        taxa_calculada = cdi + 2
+    elif perfil_retorno == "Arrojado (CDI + 5%)":
+        taxa_calculada = cdi + 5
+    else:  # Personalizado
+        taxa_calculada = 12.0
+
+    taxa_anual = st.number_input(
+        "Taxa anual (% a.a.)",
+        min_value=0.1,
+        max_value=50.0,
+        value=float(taxa_calculada),
+        step=0.1,
+        format="%.1f",
+        help="Ajuste a taxa manualmente se desejar. O valor é pré-preenchido com base no perfil selecionado mas pode ser alterado livremente.",
+    )
 
     taxa_mensal = ((1 + taxa_anual / 100) ** (1 / 12) - 1) * 100
     st.info(f"Taxa anual: {taxa_anual:.1f}% | Taxa mensal: {taxa_mensal:.2f}%")
@@ -162,27 +177,32 @@ st.plotly_chart(fig, use_container_width=True)
 # ── Comparativo de Estratégias ────────────────────────────────────────────────
 st.subheader("Comparativo de Estratégias")
 
-_ESTRATEGIAS = {
-    "Conservador (CDI)": cdi,
-    "Moderado (CDI + 2%)": cdi + 2,
-    "Arrojado (CDI + 5%)": cdi + 5,
-}
+estrategias = [
+    ("Conservador (CDI)", cdi),
+    ("Moderado (CDI + 2%)", cdi + 2),
+    ("Arrojado (CDI + 5%)", cdi + 5),
+]
+
+taxas_base = [cdi, cdi + 2, cdi + 5]
+if round(taxa_anual, 1) not in [round(t, 1) for t in taxas_base]:
+    estrategias.insert(0, (f"Personalizado ({taxa_anual:.1f}%)", taxa_anual))
 
 linhas_comp = []
-for nome, taxa in _ESTRATEGIAS.items():
-    tm = (1 + taxa / 100) ** (1 / 12) - 1
+for nome, taxa_comp in estrategias:
+    tm = (1 + taxa_comp / 100) ** (1 / 12) - 1
     p = patrimonio_inicial
     for _ in range(total_meses):
         p = p * (1 + tm) + aporte_mensal
     juros = p - total_aportado
     multiplicador = p / total_aportado if total_aportado > 0 else 0
+    selecionada = round(taxa_comp, 1) == round(taxa_anual, 1)
     linhas_comp.append({
         "Estratégia": nome,
-        "Taxa a.a.": f"{taxa:.1f}%",
+        "Taxa a.a.": f"{taxa_comp:.1f}%",
         "Patrimônio Final": fmt_brl(p),
         "Total Juros": fmt_brl(juros),
         "Multiplicador": f"{multiplicador:.2f}x",
-        "_selecionada": nome == perfil_retorno,
+        "_selecionada": selecionada,
     })
 
 df_comp = pd.DataFrame(linhas_comp)
