@@ -71,19 +71,20 @@ def enviar_otp_reset(email: str) -> dict:
         return {"success": False, "error": str(e)}
 
 
-def verificar_otp_e_atualizar_senha(email: str, codigo: str, nova_senha: str) -> dict:
+def verificar_otp_e_atualizar_senha(email: str, token: str, nova_senha: str) -> dict:
     try:
         supabase = get_supabase_client()
         result = supabase.auth.verify_otp({
             "email": email,
-            "token": codigo,
+            "token": token,
             "type": "email",
         })
         if result.user:
             st.session_state["user"]    = result.user
             st.session_state["session"] = result.session
-        supabase.auth.update_user({"password": nova_senha})
-        return {"success": True}
+            supabase.auth.update_user({"password": nova_senha})
+            return {"success": True}
+        return {"success": False, "error": "Código inválido"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
