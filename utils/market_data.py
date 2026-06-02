@@ -167,10 +167,18 @@ def get_dados_fundamentus(ticker: str) -> dict:
         if df is None or df.empty:
             return vazio
         row = df.iloc[0]
+        pvp = _converter_valor_fundamentus(row["PVP"])
+        if pvp is not None and pvp > 4.0:
+            try:
+                pvp_yf = yf.Ticker(ticker + ".SA").info.get("priceToBook", None)
+                if pvp_yf and 0.1 < pvp_yf < 4.0:
+                    pvp = pvp_yf
+            except Exception:
+                pass
         return {
             "pl":  _converter_valor_fundamentus(row["PL"]),
             "dy":  _converter_valor_fundamentus(row["Div_Yield"]),
-            "pvp": _converter_valor_fundamentus(row["PVP"]),
+            "pvp": pvp,
             "roe": _converter_valor_fundamentus(row["ROE"]),
         }
     except Exception:
@@ -651,6 +659,12 @@ def calcular_score_radar(dados: dict, selic: float) -> dict:
         score -= 1
         penalidades.append(
             f"P/VP muito elevado ({pvp:.2f}): cota negociada com prêmio alto sobre o patrimônio."
+        )
+    if pvp is not None and pvp < 0.5 and pl is not None and pl > 20:
+        score -= 2
+        penalidades.append(
+            f"P/VP muito baixo ({pvp:.2f}) com P/L alto ({pl:.1f}): pode indicar destruição de "
+            "patrimônio, não oportunidade. Analise com cautela."
         )
 
     # ── Score por estilo ────────────────────────────────────────────────────
