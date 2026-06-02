@@ -466,11 +466,11 @@ def calcular_renda_fixa() -> list[dict]:
         elif dias_para_vencer <= 0:
             status = "Vencido"
         elif dias_para_vencer <= 90:
-            status = "Vence em breve"
+            status = f"Vence em {dias_para_vencer} dias"
         elif dias_para_vencer <= 365:
-            status = "Vence em 1 ano"
+            status = f"Vence em {dias_para_vencer // 30} meses"
         else:
-            status = "Longo prazo"
+            status = f"Vence em {dias_para_vencer // 365} ano(s)"
 
         # --- Dias aplicado ---
         aplic = _parse_data(ativo.get("data_aplicacao"))

@@ -10,13 +10,16 @@ if not is_authenticated():
     st.warning("Você precisa estar logado para acessar esta página.")
     st.stop()
 
-_COR_STATUS = {
-    "Vencido":        "color: #FF4B4B",
-    "Vence em breve": "color: #FF8C00",
-    "Vence em 1 ano": "color: #FFC107",
-    "Longo prazo":    "color: #00A878",
-    "Sem vencimento": "",
-}
+def _cor_status(status: str) -> str:
+    if status == "Vencido":
+        return "color: #FF4B4B"
+    if "dias" in status:
+        return "color: #FF8C00"
+    if "meses" in status:
+        return "color: #FFC107"
+    if "ano" in status:
+        return "color: #00A878"
+    return ""
 
 
 def _taxa_label(a: dict) -> str:
@@ -44,7 +47,7 @@ indices = get_indices_renda_fixa()
 user_email = st.session_state.get("user").email if st.session_state.get("user") else None
 
 ativos_vencidos  = [a for a in ativos if a.get("status_vencimento") == "Vencido"]
-ativos_vencendo  = [a for a in ativos if a.get("status_vencimento") in ("Vence em breve", "Vence em 1 ano")]
+ativos_vencendo  = [a for a in ativos if "dias" in a.get("status_vencimento", "") or "meses" in a.get("status_vencimento", "")]
 
 if user_email and (ativos_vencidos or ativos_vencendo):
     st.subheader("Notificações")
@@ -61,7 +64,7 @@ if user_email and (ativos_vencidos or ativos_vencendo):
                 st.error(f"Erro ao enviar: {result['error']}")
 
 # ── Alertas de Vencimento (topo) ──────────────────────────────────────────────
-alertas_criticos = [a for a in ativos if a["status_vencimento"] in ("Vencido", "Vence em breve")]
+alertas_criticos = [a for a in ativos if a["status_vencimento"] == "Vencido" or "dias" in a["status_vencimento"]]
 if alertas_criticos:
     st.header("Alertas de Vencimento")
     for a in alertas_criticos:
@@ -143,7 +146,7 @@ else:
     df = pd.DataFrame(linhas)
 
     def _estilo(row: pd.Series) -> list[str]:
-        cor = _COR_STATUS.get(row["Status"], "")
+        cor = _cor_status(row["Status"])
         return [""] * (len(row) - 1) + [cor]
 
     st.dataframe(df.style.apply(_estilo, axis=1), use_container_width=True, hide_index=True)
