@@ -146,7 +146,7 @@ for ativo, classe in ativos_div:
         hist = get_dividendos_ativo(ticker, classe)
 
         if hist.empty:
-            st.info("Sem histórico disponível para os últimos 24 meses.")
+            st.info("Sem histórico disponível para os últimos 5 anos.")
             continue
 
         corte_12m = pd.Timestamp.today() - pd.DateOffset(months=12)
@@ -157,19 +157,30 @@ for ativo, classe in ativos_div:
         total_12m  = float(hist_12m.sum() * qtd) if not hist_12m.empty else 0.0
 
         h1, h2, h3 = st.columns(3)
-        h1.metric("Último Pagamento",      fmt_brl(ultimo))
-        h2.metric("Média últimos 12m",     fmt_brl(media_12m))
-        h3.metric("Total últimos 12m",     fmt_brl(total_12m))
+        h1.metric("Último Pagamento",  fmt_brl(ultimo))
+        h2.metric("Média últimos 12m", fmt_brl(media_12m))
+        h3.metric("Total últimos 12m", fmt_brl(total_12m))
 
-        hist_reset = hist.reset_index()
-        fig = px.bar(
-            hist_reset,
-            x="Data",
-            y="Dividendo",
-            title=f"Histórico de dividendos — {ticker}",
-            labels={"Data": "Data", "Dividendo": "Dividendo por cota (R$)"},
-            color_discrete_sequence=["#00A878"],
-        )
-        fig.update_layout(showlegend=False)
-        fig.update_xaxes(tickformat="%b %Y", dtick="M3")
-        st.plotly_chart(fig, use_container_width=True)
+        if len(hist) < 2:
+            st.caption(
+                f"Apenas {len(hist)} pagamento(s) encontrado(s) "
+                f"nos últimos 5 anos. Dados insuficientes para gráfico."
+            )
+            if len(hist) == 1:
+                st.metric(
+                    "Último pagamento registrado",
+                    fmt_brl(hist["Dividendo"].iloc[0]),
+                )
+        else:
+            hist_reset = hist.reset_index()
+            fig = px.bar(
+                hist_reset,
+                x="Data",
+                y="Dividendo",
+                title=f"Histórico de dividendos — {ticker}",
+                labels={"Data": "Data", "Dividendo": "Dividendo por cota (R$)"},
+                color_discrete_sequence=["#00A878"],
+            )
+            fig.update_layout(showlegend=False)
+            fig.update_xaxes(tickformat="%b %Y", dtick="M3")
+            st.plotly_chart(fig, use_container_width=True)

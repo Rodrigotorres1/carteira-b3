@@ -468,7 +468,7 @@ def get_dividendos_ativo(ticker: str, classe: str) -> pd.DataFrame:
         divs.index = divs.index.to_period("M").to_timestamp()
         divs = divs.groupby(divs.index).sum()
         divs.name = "Dividendo"
-        corte = pd.Timestamp.today() - pd.DateOffset(months=24)
+        corte = pd.Timestamp.now() - pd.DateOffset(months=60)
         divs = divs[divs.index >= corte]
         if divs.empty:
             return vazio
