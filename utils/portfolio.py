@@ -95,6 +95,45 @@ def remove_ativo(ticker: str) -> None:
     _dump(data)
 
 
+def get_watchlist() -> list:
+    return _load().get("watchlist", [])
+
+
+def ticker_na_watchlist(ticker: str) -> bool:
+    return any(w["ticker"] == ticker.upper() for w in get_watchlist())
+
+
+def add_watchlist(
+    ticker: str,
+    classe: str,
+    preco_entrada: float | None = None,
+    motivo: str | None = None,
+) -> bool:
+    """Adiciona ativo à watchlist. Retorna False se já existia."""
+    ticker = ticker.upper()
+    data = _load()
+    watchlist = data.setdefault("watchlist", [])
+    if any(w["ticker"] == ticker for w in watchlist):
+        return False
+    preco_atual = get_preco_atual(ticker, classe)
+    watchlist.append({
+        "ticker":             ticker,
+        "classe":             classe,
+        "preco_entrada_alvo": preco_entrada,
+        "motivo":             motivo or "",
+        "preco_na_adicao":    preco_atual,
+        "data_adicao":        date.today().strftime("%d/%m/%Y"),
+    })
+    _dump(data)
+    return True
+
+
+def remove_watchlist(ticker: str) -> None:
+    data = _load()
+    data["watchlist"] = [w for w in data.get("watchlist", []) if w["ticker"] != ticker.upper()]
+    _dump(data)
+
+
 def calcular_carteira() -> list[dict]:
     """Retorna lista de ativos com preço atual e valor atual calculados."""
     resultado = []

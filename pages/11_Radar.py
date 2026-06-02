@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from utils.market_data import get_dados_radar
-from utils.portfolio import fmt_brl, get_ativos
+from utils.portfolio import add_watchlist, fmt_brl, get_ativos, ticker_na_watchlist
 from utils.sugestoes import UNIVERSO_ACOES, UNIVERSO_FIIS
 
 _COR_ESTILO = {"Valor": "blue", "Crescimento": "orange", "Híbrido": "gray"}
@@ -157,6 +157,25 @@ st.caption(
     "Scores baseados em dados públicos. "
     "Não constituem recomendação de investimento."
 )
+
+# ── Botões de watchlist por ativo ─────────────────────────────────────────────
+st.subheader("Adicionar à Watchlist")
+wl_cols = st.columns(4)
+for idx, r in enumerate(resultados_ord):
+    ticker = r["ticker"]
+    with wl_cols[idx % 4]:
+        if ticker in ativos_carteira:
+            st.caption(f"{ticker}: na carteira")
+        elif ticker_na_watchlist(ticker):
+            st.caption(f"{ticker}: na watchlist")
+        else:
+            if st.button(f"+ {ticker}", key=f"wl_{ticker}"):
+                adicionado = add_watchlist(
+                    ticker, r["classe"],
+                    preco_entrada=r.get("upside") and r.get("preco_atual"),
+                    motivo=r.get("resumo", ""),
+                )
+                st.toast(f"{ticker} adicionado à watchlist!" if adicionado else f"{ticker} já está na watchlist.")
 
 # ── Detalhes por ativo ────────────────────────────────────────────────────────
 st.divider()

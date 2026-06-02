@@ -2,7 +2,8 @@ import pandas as pd
 import streamlit as st
 
 from utils.market_data import get_contexto_macro
-from utils.portfolio import calcular_alocacao_atual, calcular_renda_fixa, get_ativos
+from utils.market_data import get_preco_atual
+from utils.portfolio import calcular_alocacao_atual, calcular_renda_fixa, get_ativos, get_watchlist
 from utils.profile import get_alocacao_alvo, get_profile, profile_exists, save_profile
 
 st.set_page_config(
@@ -127,6 +128,17 @@ else:
                     alertas.append(f"Renda Fixa: **{a['ticker']}** venceu. Verifique o resgate.")
                 elif dias is not None and dias <= 90:
                     alertas.append(f"Renda Fixa: **{a['ticker']}** vence em {dias} dias.")
+        except Exception:
+            pass
+
+        try:
+            for w in get_watchlist():
+                alvo = w.get("preco_entrada_alvo")
+                if not alvo:
+                    continue
+                pa = get_preco_atual(w["ticker"], w["classe"])
+                if pa and pa <= alvo * 1.02:
+                    alertas.append(f"{w['ticker']} atingiu o preço alvo na watchlist")
         except Exception:
             pass
 

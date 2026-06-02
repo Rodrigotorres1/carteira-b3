@@ -7,7 +7,7 @@ from utils.market_data import (
     get_preco_atual,
     get_preco_entrada_saida,
 )
-from utils.portfolio import get_ativos
+from utils.portfolio import add_watchlist, get_ativos, ticker_na_watchlist
 from utils.profile import get_profile
 from utils.sugestoes import agrupar_por_classe, get_objetivo_combinado, get_sugestoes
 
@@ -203,9 +203,16 @@ for i, classe in enumerate(_ORDEM_CLASSES):
             # Linha 4 — carteira / watchlist
             if ticker in ativos_carteira:
                 st.success("Você já tem esse ativo na carteira.")
+            elif ticker_na_watchlist(ticker):
+                st.info("Na watchlist")
             else:
                 if st.button("Adicionar à watchlist", key=f"add_{ticker}_{objetivo_chave}"):
-                    st.toast("Em breve: funcionalidade de watchlist")
+                    preco_ent = sug["entrada_saida"]["preco_atual"] if sug.get("entrada_saida") else None
+                    adicionado = add_watchlist(ticker, classe, preco_entrada=preco_ent, motivo=motivo)
+                    if adicionado:
+                        st.toast(f"{ticker} adicionado à watchlist!")
+                    else:
+                        st.toast(f"{ticker} já está na watchlist.")
 
 st.divider()
 st.warning(
