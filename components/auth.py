@@ -110,17 +110,21 @@ def render_login() -> None:
                         elif len(nova_senha) < 6:
                             st.error("Mínimo 6 caracteres.")
                         else:
-                            from utils.database import verificar_otp_e_atualizar_senha
-                            with st.spinner("Verificando..."):
-                                result = verificar_otp_e_atualizar_senha(
-                                    st.session_state["reset_email"], codigo, nova_senha
-                                )
-                            if result["success"]:
-                                st.success("Senha atualizada!")
-                                st.session_state.pop("reset_email", None)
-                                st.rerun()
+                            from utils.database import login as fazer_login, verificar_otp_e_atualizar_senha
+                            teste_senha_antiga = fazer_login(st.session_state["reset_email"], nova_senha)
+                            if teste_senha_antiga["success"]:
+                                st.error("A nova senha não pode ser igual à senha atual.")
                             else:
-                                st.error("Código inválido ou expirado.")
+                                with st.spinner("Verificando..."):
+                                    result = verificar_otp_e_atualizar_senha(
+                                        st.session_state["reset_email"], codigo, nova_senha
+                                    )
+                                if result["success"]:
+                                    st.success("Senha atualizada!")
+                                    st.session_state.pop("reset_email", None)
+                                    st.rerun()
+                                else:
+                                    st.error("Código inválido ou expirado.")
 
     with tab_signup:
         with st.form("form_signup"):
