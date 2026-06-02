@@ -1,3 +1,17 @@
+UNIVERSO_ACOES = [
+    "BBAS3", "BBSE3", "ITUB4", "BRADESCO4", "SANB11",
+    "PETR4", "VALE3", "PRIO3", "CSAN3",
+    "WEGE3", "EQTL3", "CPFE3", "EGIE3", "TAEE11",
+    "RENT3", "RADL3", "LREN3", "MGLU3",
+    "VIVT3", "TOTS3", "INTB3", "SMTO3",
+]
+
+UNIVERSO_FIIS = [
+    "HGLG11", "KNRI11", "XPML11", "HGBS11",
+    "GGRC11", "ALZR11", "RBVA11", "CPTS11",
+    "BTLG11", "VILG11", "MXRF11", "KNCR11",
+]
+
 SUGESTOES = {
     "conservador": {
         "renda": [

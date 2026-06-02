@@ -611,3 +611,59 @@ def get_proximo_dividendo(ticker: str, classe: str) -> dict | None:
         }
     except Exception:
         return None
+
+
+def get_dados_radar(ticker: str, classe: str) -> dict | None:
+    """Busca indicadores fundamentalistas para varredura do radar de oportunidades."""
+    try:
+        preco_atual = get_preco_atual(ticker, classe)
+        if not preco_atual:
+            return None
+
+        pl = dy = pvp = upside = None
+
+        if classe == "Ações":
+            fund = get_dados_fundamentus(ticker)
+            if fund:
+                pl  = fund.get("pl")
+                dy  = fund.get("dy")
+                pvp = fund.get("pvp")
+        elif classe == "FIIs":
+            fii = get_dados_yfinance_fii(ticker)
+            if fii:
+                dy  = fii.get("dy_anual")
+                pvp = fii.get("pvp")
+
+        es = get_preco_entrada_saida(ticker, classe)
+        if es:
+            upside = es.get("upside")
+
+        indices = get_indices_renda_fixa()
+        selic = indices["selic"]
+
+        score = 0
+        if dy and dy > selic:
+            score += 2
+        elif dy and dy > selic * 0.8:
+            score += 1
+        if pvp is not None and pvp < 1.0:
+            score += 2
+        elif pvp is not None and pvp < 1.1:
+            score += 1
+        if pl is not None and 0 < pl < 12:
+            score += 2
+        if upside is not None and upside > 15:
+            score += 2
+
+        return {
+            "ticker":            ticker,
+            "classe":            classe,
+            "preco_atual":       preco_atual,
+            "pl":                pl,
+            "dy":                dy,
+            "pvp":               pvp,
+            "upside":            upside,
+            "score_oportunidade": min(10, score),
+        }
+    except Exception:
+        return None
