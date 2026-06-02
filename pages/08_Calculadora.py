@@ -5,6 +5,11 @@ import streamlit as st
 from utils.market_data import get_preco_atual
 from utils.portfolio import fmt_brl, get_ativos
 
+
+def _brl(v: float) -> str:
+    """fmt_brl com $ escapado para uso em contextos markdown do Streamlit."""
+    return fmt_brl(v).replace("$", r"\$")
+
 st.title("Calculadora de Preço Médio")
 st.caption("Simule aportes e descubra como otimizar seu preço médio.")
 
@@ -48,24 +53,25 @@ var_pct1 = (diff_pm1 / pm_atual1) * 100
 with st.container(border=True):
     m1, m2, m3 = st.columns(3)
     m1.metric("PM Atual",    fmt_brl(pm_atual1))
-    m2.metric(
-        "Novo PM",
-        fmt_brl(novo_pm1),
-        delta=fmt_brl(diff_pm1),
-        delta_color="inverse" if novo_pm1 > pm_atual1 else "normal",
-    )
+    delta_text = fmt_brl(abs(diff_pm1))
+    if diff_pm1 < 0:
+        m2.metric("Novo PM", fmt_brl(novo_pm1), delta=f"-{delta_text}", delta_color="normal")
+    elif diff_pm1 > 0:
+        m2.metric("Novo PM", fmt_brl(novo_pm1), delta=f"+{delta_text}", delta_color="inverse")
+    else:
+        m2.metric("Novo PM", fmt_brl(novo_pm1))
     m3.metric("Variação do PM", f"{var_pct1:+.2f}%")
 
     st.divider()
 
     v1, v2 = st.columns(2)
-    v1.write(f"**Valor do aporte:** {fmt_brl(qtd_comprar1 * preco_comp1)}")
+    v1.write(f"**Valor do aporte:** {_brl(qtd_comprar1 * preco_comp1)}")
     v2.write(f"**Nova quantidade total:** {qtd_atual1 + qtd_comprar1}")
 
     if novo_pm1 < pm_atual1:
-        st.success(f"Aporte reduz seu preço médio em R$ {abs(diff_pm1):.2f} por cota.")
+        st.success(f"Aporte reduz seu preço médio em {_brl(abs(diff_pm1))} por cota.")
     elif novo_pm1 > pm_atual1:
-        st.warning(f"Aporte aumenta seu preço médio em R$ {abs(diff_pm1):.2f} por cota.")
+        st.warning(f"Aporte aumenta seu preço médio em {_brl(abs(diff_pm1))} por cota.")
     else:
         st.info("Aporte não altera o preço médio.")
 
@@ -101,7 +107,7 @@ with col_d:
 if preco_comp2 >= pm_atual2:
     st.error(
         f"Impossível atingir um PM menor comprando acima do seu preço médio atual. "
-        f"O preço de compra precisa ser menor que {fmt_brl(pm_atual2)}."
+        f"O preço de compra precisa ser menor que {_brl(pm_atual2)}."
     )
 elif pm_alvo2 >= pm_atual2:
     st.warning("O PM alvo precisa ser menor que o PM atual para fazer sentido como estratégia de redução.")
@@ -125,7 +131,15 @@ else:
 
         st.divider()
 
-        st.info(
-            f"Comprando {qtd_nec2} cotas a {fmt_brl(preco_comp2)}, "
-            f"seu PM cairá de {fmt_brl(pm_atual2)} para {fmt_brl(pm_result2)}."
+        st.write(
+            f"Comprando **{qtd_nec2} cotas** a "
+            f"**{_brl(preco_comp2)}**, seu PM cairá de "
+            f"**{_brl(pm_atual2)}** para "
+            f"**{_brl(pm_result2)}**."
+        )
+        st.caption(
+            f"O PM resultante é ligeiramente menor que o alvo "
+            f"({_brl(pm_alvo2)}) pois não é possível comprar "
+            f"frações de cota. O cálculo arredonda para cima "
+            f"garantindo que o alvo seja atingido ou superado."
         )
