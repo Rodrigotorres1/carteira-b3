@@ -1,6 +1,7 @@
 import pandas as pd
 import streamlit as st
 
+from utils.email import enviar_email_vencimentos
 from utils.market_data import get_indices_renda_fixa
 from utils.portfolio import calcular_renda_fixa, fmt_brl as _brl
 
@@ -38,6 +39,26 @@ st.title("Renda Fixa")
 
 ativos = calcular_renda_fixa()
 indices = get_indices_renda_fixa()
+
+# ── Notificações por Email ────────────────────────────────────────────────────
+user_email = st.session_state.get("user").email if st.session_state.get("user") else None
+
+ativos_vencidos  = [a for a in ativos if a.get("status_vencimento") == "Vencido"]
+ativos_vencendo  = [a for a in ativos if a.get("status_vencimento") in ("Vence em breve", "Vence em 1 ano")]
+
+if user_email and (ativos_vencidos or ativos_vencendo):
+    st.subheader("Notificações")
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        st.write(f"Enviar resumo de vencimentos para **{user_email}**")
+    with col2:
+        if st.button("Enviar por email", use_container_width=True, type="primary"):
+            with st.spinner("Enviando email..."):
+                result = enviar_email_vencimentos(user_email, ativos_vencendo, ativos_vencidos)
+            if result["success"]:
+                st.success("Email enviado com sucesso! Verifique sua caixa de entrada.")
+            else:
+                st.error(f"Erro ao enviar: {result['error']}")
 
 # ── Alertas de Vencimento (topo) ──────────────────────────────────────────────
 alertas_criticos = [a for a in ativos if a["status_vencimento"] in ("Vencido", "Vence em breve")]
