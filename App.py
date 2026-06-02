@@ -3,7 +3,13 @@ import streamlit as st
 
 from utils.market_data import get_contexto_macro
 from utils.market_data import get_preco_atual
-from utils.portfolio import calcular_alocacao_atual, calcular_renda_fixa, get_ativos, get_watchlist
+from utils.portfolio import (
+    calcular_alocacao_atual,
+    calcular_renda_fixa,
+    get_ativos,
+    get_watchlist,
+    salvar_snapshot_patrimonio,
+)
 from utils.profile import get_alocacao_alvo, get_profile, profile_exists, save_profile
 
 st.set_page_config(
@@ -65,6 +71,8 @@ def _tela_selecao_perfil(titulo: str, subtitulo: str) -> None:
             st.rerun()
         st.caption("Aceita maior volatilidade.\nFoco em crescimento de longo prazo.")
 
+
+salvar_snapshot_patrimonio()
 
 if not profile_exists():
     _tela_selecao_perfil(

@@ -544,3 +544,54 @@ def calcular_alocacao_atual() -> dict[str, float]:
 
     total_geral = sum(totais.values())
     return {classe: round(valor / total_geral * 100, 2) for classe, valor in totais.items()}
+
+
+def salvar_snapshot_patrimonio() -> None:
+    """Salva ou atualiza o valor total da carteira no histórico de hoje."""
+    try:
+        carteira = calcular_carteira()
+        if not carteira:
+            return
+        valor_total = sum(a["valor_atual"] for a in carteira)
+        hoje = date.today().strftime("%d/%m/%Y")
+        data = _load()
+        historico = data.setdefault("historico_patrimonio", [])
+        for entrada in historico:
+            if entrada["data"] == hoje:
+                entrada["valor"] = round(valor_total, 2)
+                _dump(data)
+                return
+        historico.append({"data": hoje, "valor": round(valor_total, 2)})
+        _dump(data)
+    except Exception:
+        pass
+
+
+def get_historico_patrimonio() -> list:
+    return _load().get("historico_patrimonio", [])
+
+
+def calcular_rentabilidade_historico(historico: list) -> dict | None:
+    """Calcula rentabilidade total e anualizada do histórico."""
+    if len(historico) < 2:
+        return None
+    try:
+        from datetime import datetime as _dt
+        primeiro = historico[0]
+        ultimo   = historico[-1]
+        v0 = primeiro["valor"]
+        v1 = ultimo["valor"]
+        if v0 == 0:
+            return None
+        d0 = _dt.strptime(primeiro["data"], "%d/%m/%Y")
+        d1 = _dt.strptime(ultimo["data"],   "%d/%m/%Y")
+        dias = max((d1 - d0).days, 1)
+        rent_total = (v1 - v0) / v0 * 100
+        rent_anual = ((v1 / v0) ** (365 / dias) - 1) * 100
+        return {
+            "rentabilidade_total":       round(rent_total, 2),
+            "rentabilidade_anualizada":  round(rent_anual, 2),
+            "dias":                      dias,
+        }
+    except Exception:
+        return None
