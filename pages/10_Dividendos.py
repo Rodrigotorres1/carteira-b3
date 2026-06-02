@@ -69,6 +69,17 @@ st.caption(
     "Dividendos futuros não são garantidos."
 )
 
+tem_baixa_confiabilidade = any(
+    dados_prox.get(a["ticker"], {}) and
+    dados_prox[a["ticker"]].get("confiabilidade_label") in ("Baixa", "Sem dados")
+    for a, _ in ativos_div
+)
+if tem_baixa_confiabilidade:
+    st.caption(
+        ":orange[Atenção: alguns ativos têm estimativas de baixa confiabilidade. "
+        "Consulte os detalhes abaixo.]"
+    )
+
 # ── Seção 2 — Próximos Pagamentos ─────────────────────────────────────────────
 st.subheader("Próximos Pagamentos Estimados")
 
@@ -87,6 +98,9 @@ for ativo, classe in ativos_div:
         "Valor Total Estimado":    prox["media_pagamento"] * qtd,
         "Frequência":              prox["frequencia"],
         "quantidade":              qtd,
+        "confiabilidade_label":    prox.get("confiabilidade_label", "Sem dados"),
+        "confiabilidade_cor":      prox.get("confiabilidade_cor", "gray"),
+        "confiabilidade_motivo":   prox.get("confiabilidade_motivo", ""),
     })
 
 proximos.sort(key=lambda x: x["Data Estimada"])
@@ -109,6 +123,17 @@ else:
             with c4:
                 st.markdown(f"**{fmt_brl(p['Valor Total Estimado'])}**")
                 st.caption(f"{p['quantidade']} cotas · {p['Frequência']}")
+
+            col_conf, col_motivo = st.columns([1, 4])
+            with col_conf:
+                cor   = p["confiabilidade_cor"]
+                label = p["confiabilidade_label"]
+                st.markdown(
+                    f'<span style="color:{cor}">● </span>**Confiabilidade: {label}**',
+                    unsafe_allow_html=True,
+                )
+            with col_motivo:
+                st.caption(p["confiabilidade_motivo"])
 
 # ── Seção 3 — Histórico por Ativo ─────────────────────────────────────────────
 st.subheader("Histórico de Dividendos")

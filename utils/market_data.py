@@ -514,11 +514,96 @@ def get_proximo_dividendo(ticker: str, classe: str) -> dict | None:
         preco_atual = get_preco_atual(ticker, classe)
         dy = (soma_12m / preco_atual * 100) if preco_atual and preco_atual > 0 else None
 
+        # ── Confiabilidade ────────────────────────────────────────────────────
+        score = 0
+        motivos = []
+        n_pagamentos = len(ultimos)
+        meses_historico = round(
+            (datas[-1] - datas[0]).days / 30
+        ) if len(datas) >= 2 else 0
+
+        # Fator 1 — regularidade dos intervalos
+        if len(intervalos) >= 2:
+            import statistics
+            desvio = statistics.stdev(intervalos)
+            if desvio < 5:
+                score += 2
+                motivos.append(f"pagamentos {frequencia.lower()}s muito regulares")
+            elif desvio < 15:
+                score += 1
+                motivos.append(f"pagamentos {frequencia.lower()}s regulares")
+            else:
+                motivos.append("intervalos entre pagamentos irregulares")
+        else:
+            motivos.append("poucos dados para avaliar regularidade")
+
+        # Fator 2 — consistência dos valores
+        valores = ultimos.tolist()
+        media_v = sum(valores) / len(valores)
+        if media_v > 0 and len(valores) >= 2:
+            import statistics as _st
+            cv = _st.stdev(valores) / media_v
+            if cv < 0.15:
+                score += 2
+                motivos.append("valores consistentes")
+            elif cv < 0.30:
+                score += 1
+                motivos.append("variação moderada nos valores")
+            else:
+                motivos.append("valores muito variados")
+
+        # Fator 3 — quantidade de pagamentos
+        if n_pagamentos >= 12:
+            score += 1
+            motivos.append(f"histórico sólido ({meses_historico} meses)")
+        elif n_pagamentos >= 6:
+            motivos.append(f"histórico adequado ({n_pagamentos} pagamentos)")
+        else:
+            score -= 1
+            motivos.append(f"histórico curto ({n_pagamentos} pagamentos)")
+
+        if score >= 4:
+            conf_label = "Alta"
+            conf_cor   = "green"
+        elif score >= 2:
+            conf_label = "Média"
+            conf_cor   = "orange"
+        else:
+            conf_label = "Baixa"
+            conf_cor   = "red"
+
+        # Motivo em linguagem natural
+        if conf_label == "Alta":
+            conf_motivo = (
+                f"Pagamentos {frequencia.lower()}s regulares com valores "
+                f"consistentes nos últimos {meses_historico} meses."
+            )
+        elif conf_label == "Média":
+            conf_motivo = (
+                "Estimativa razoável, mas com alguma variação nos valores "
+                f"ou intervalos ({'; '.join(motivos)})."
+            )
+        else:
+            if n_pagamentos < 6:
+                conf_motivo = (
+                    f"Histórico curto (menos de 6 pagamentos). "
+                    "Estimativa baseada em poucos dados."
+                )
+            else:
+                conf_motivo = (
+                    "Valores variáveis nos últimos pagamentos. "
+                    "Estimativa menos precisa."
+                )
+
         return {
             "media_pagamento": media,
             "frequencia": frequencia,
             "proxima_data_estimada": proxima_data,
             "dy_ultimos_12m": dy,
+            "confiabilidade_score": score,
+            "confiabilidade_label": conf_label,
+            "confiabilidade_cor":   conf_cor,
+            "confiabilidade_motivo": conf_motivo,
         }
     except Exception:
         return None
