@@ -171,4 +171,5 @@ for ativo, classe in ativos_div:
             color_discrete_sequence=["#00A878"],
         )
         fig.update_layout(showlegend=False)
+        fig.update_xaxes(tickformat="%b %Y", dtick="M3")
         st.plotly_chart(fig, use_container_width=True)

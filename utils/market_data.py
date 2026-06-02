@@ -457,18 +457,22 @@ def get_preco_entrada_saida(ticker: str, classe: str) -> dict:
 
 
 def get_dividendos_ativo(ticker: str, classe: str) -> pd.DataFrame:
-    """Retorna histórico de dividendos dos últimos 24 meses."""
+    """Retorna histórico de dividendos dos últimos 24 meses, agrupado por mês."""
     vazio = pd.DataFrame(columns=["Dividendo"])
     try:
         symbol = ticker + ".SA" if classe in ("Ações", "FIIs") else ticker
         divs = yf.Ticker(symbol).dividends
         if divs is None or divs.empty:
             return vazio
-        divs.index = divs.index.tz_localize(None)
+        divs.index = pd.to_datetime(divs.index).tz_localize(None)
+        divs.index = divs.index.to_period("M").to_timestamp()
+        divs = divs.groupby(divs.index).sum()
+        divs.name = "Dividendo"
         corte = pd.Timestamp.today() - pd.DateOffset(months=24)
         divs = divs[divs.index >= corte]
         if divs.empty:
             return vazio
+        divs.index = pd.to_datetime(divs.index).normalize()
         df = divs.to_frame(name="Dividendo")
         df.index.name = "Data"
         return df
