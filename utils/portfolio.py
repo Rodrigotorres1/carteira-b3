@@ -1,7 +1,6 @@
 import json
-from pathlib import Path
-
 from datetime import date
+from pathlib import Path
 
 from utils.market_data import (
     get_dados_fundamentus,
@@ -12,6 +11,21 @@ from utils.market_data import (
 )
 
 _DATA_PATH = Path(__file__).parent.parent / "data" / "carteira.json"
+
+# ── Constantes de módulo ──────────────────────────────────────────────────────
+SELIC_FALLBACK = 10.5
+PVP_OTIMO = 0.95
+PVP_BOM = 1.05
+PVP_CARO = 1.20
+DY_MENSAL_BOM = 0.8
+DY_MENSAL_MINIMO = 0.5
+
+
+def fmt_brl(valor: float | None) -> str:
+    """Formata valor em reais com separadores brasileiros (1.234,56)."""
+    if valor is None:
+        return "-"
+    return f"R$ {valor:_.2f}".replace(".", ",").replace("_", ".")
 
 
 def _load() -> dict:
@@ -149,15 +163,20 @@ def calcular_score_fii(
     preco_atual: float,
     preco_medio_usuario: float,
     perfil: str,
+    fund_data: dict | None = None,
 ) -> dict:
     """Calcula score de decisão para um FII com base em DY mensal, range 52s e posição."""
-    DY_MENSAL_BOM = 0.8
-    DY_MENSAL_MINIMO = 0.5
-
     fatores = []
     total = 0
 
-    fund = get_dados_yfinance_fii(ticker)
+    if fund_data is not None:
+        fund = fund_data
+    else:
+        pvp_cadastrado = next(
+            (a.get("pvp") for a in get_ativos() if a["ticker"] == ticker.upper()),
+            None,
+        )
+        fund = get_dados_yfinance_fii(ticker, pvp_cadastrado=pvp_cadastrado)
 
     # Fator 1 — Dividend Yield mensal (peso 2)
     dy_mensal = fund["dy_mensal"]
@@ -183,7 +202,7 @@ def calcular_score_fii(
     p_max = fund["preco_52s_max"]
     if p_min is not None and p_max is not None and p_max > p_min:
         posicao_range = (preco_atual - p_min) / (p_max - p_min) * 100
-        range_txt = f"R\$ {p_min:.2f} a R\$ {p_max:.2f}"
+        range_txt = f"R$ {p_min:.2f} a R$ {p_max:.2f}"
         if posicao_range <= 30:
             pts_52s = 1
             explicacao_52s = (
@@ -192,9 +211,7 @@ def calcular_score_fii(
             )
         elif posicao_range <= 70:
             pts_52s = 0
-            explicacao_52s = (
-                f"Cota na metade do range de 52 semanas ({range_txt})."
-            )
+            explicacao_52s = f"Cota na metade do range de 52 semanas ({range_txt})."
         else:
             pts_52s = -1
             explicacao_52s = (
@@ -210,9 +227,6 @@ def calcular_score_fii(
     # Fator 3 — P/VP do usuário (peso 1, quando disponível)
     pvp = fund.get("pvp")
     if pvp is not None:
-        PVP_OTIMO = 0.95
-        PVP_BOM = 1.05
-        PVP_CARO = 1.20
         fonte_pvp = "informado pelo usuário"
         if pvp <= PVP_OTIMO:
             pts_pvp = 1
@@ -222,9 +236,7 @@ def calcular_score_fii(
             )
         elif pvp <= PVP_BOM:
             pts_pvp = 0
-            explicacao_pvp = (
-                f"P/VP de {pvp:.2f} ({fonte_pvp}): cota próxima do valor patrimonial."
-            )
+            explicacao_pvp = f"P/VP de {pvp:.2f} ({fonte_pvp}): cota próxima do valor patrimonial."
         elif pvp <= PVP_CARO:
             pts_pvp = 0
             explicacao_pvp = (
@@ -233,9 +245,7 @@ def calcular_score_fii(
             )
         else:
             pts_pvp = -1
-            explicacao_pvp = (
-                f"P/VP de {pvp:.2f} ({fonte_pvp}): prêmio elevado sobre o patrimônio."
-            )
+            explicacao_pvp = f"P/VP de {pvp:.2f} ({fonte_pvp}): prêmio elevado sobre o patrimônio."
         total += pts_pvp
         fatores.append({"nome": "P/VP", "pontos": pts_pvp, "explicacao": explicacao_pvp})
 
@@ -272,9 +282,14 @@ def calcular_score_acao(
     preco_atual: float,
     preco_medio_usuario: float,
     perfil: str,
+    fund_data: dict | None = None,
 ) -> dict:
     """Calcula score de decisão para uma ação com base em múltiplos fatores."""
-    SELIC = 10.5
+    try:
+        selic = get_indices_renda_fixa()["selic"]
+    except Exception:
+        selic = SELIC_FALLBACK
+
     fatores = []
     total = 0
 
@@ -325,7 +340,7 @@ def calcular_score_acao(
     fatores.append({"nome": "Preço alvo dos analistas", "pontos": pts_alvo, "explicacao": explicacao_alvo})
 
     # Fator 3 — P/L (peso 1)
-    fund = get_dados_fundamentus(ticker)
+    fund = fund_data if fund_data is not None else get_dados_fundamentus(ticker)
     pl = fund["pl"]
     if pl is not None and pl > 0:
         if pl < 10:
@@ -335,7 +350,7 @@ def calcular_score_acao(
         else:
             pts_pl, nivel_pl = -1, "Caro"
         explicacao_pl = (
-            f"P/L de {pl:.1f}: o mercado paga R\$ {pl:.2f} para cada R\$ 1,00 de lucro. "
+            f"P/L de {pl:.1f}: o mercado paga R$ {pl:.2f} para cada R$ 1,00 de lucro. "
             f"{nivel_pl} em relação ao mercado geral."
         )
     else:
@@ -347,18 +362,16 @@ def calcular_score_acao(
     # Fator 4 — Dividend Yield vs Selic (peso 1)
     dy = fund["dy"]
     if dy is not None:
-        if dy >= SELIC:
+        if dy >= selic:
             pts_dy = 1
             nivel_dy = "supera"
-        elif dy >= SELIC * 0.7:
+        elif dy >= selic * 0.7:
             pts_dy = 0
             nivel_dy = "está próximo da"
         else:
             pts_dy = -1
             nivel_dy = "está abaixo da"
-        explicacao_dy = (
-            f"Dividend yield de {dy:.2f}% {nivel_dy} Selic atual de {SELIC}%."
-        )
+        explicacao_dy = f"Dividend yield de {dy:.2f}% {nivel_dy} Selic atual de {selic:.1f}%."
     else:
         pts_dy = 0
         explicacao_dy = "Dividend yield não disponível para este ativo."
@@ -452,7 +465,9 @@ def calcular_renda_fixa() -> list[dict]:
         rendimento_rs = valor_atual - valor_investido
 
         # --- Valor no vencimento ---
-        if dias_aplicado is not None and dias_para_vencer is not None:
+        if dias_para_vencer is not None and dias_para_vencer <= 0:
+            valor_vencimento = valor_atual
+        elif dias_aplicado is not None and dias_para_vencer is not None:
             dias_total = dias_aplicado + dias_para_vencer
             valor_vencimento = valor_investido * (1 + taxa_efetiva / 100) ** (dias_total / 365)
         else:

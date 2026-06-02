@@ -7,6 +7,9 @@ from utils.portfolio import add_ativo, ativo_existe, get_ativos, remove_ativo
 
 st.title("Minha Carteira")
 
+if "msg_remocao" in st.session_state:
+    st.success(st.session_state.pop("msg_remocao"))
+
 st.header("Adicionar Ativo")
 
 classe = st.selectbox(
@@ -94,7 +97,10 @@ with st.form("form_add_ativo", clear_on_submit=True):
 
     else:  # Alternativo
         identificador = st.text_input("Ticker", placeholder="Ex: BTC-USD")
-        quantidade = st.number_input("Quantidade", min_value=0.00000001, format="%.8f", value=0.00000001)
+        quantidade = st.number_input(
+            "Quantidade", min_value=0.00000001, format="%.8f", value=0.001,
+            help="Para Bitcoin use decimais (ex: 0.01 BTC). Para Ouro use frações de onça (ex: 0.5). Tickers aceitos: BTC-USD, GC=F (Ouro), SI=F (Prata)",
+        )
         preco_medio = st.number_input("Preço Médio (R$)", min_value=0.01, format="%.2f", value=0.01)
         vencimento = None
         data_aplicacao = None
@@ -145,5 +151,5 @@ else:
     ticker_remover = st.selectbox("Selecione o ativo para remover", tickers_cadastrados)
     if st.button("Remover"):
         remove_ativo(ticker_remover)
-        st.success(f"{ticker_remover} removido da carteira.")
+        st.session_state["msg_remocao"] = f"{ticker_remover} removido da carteira."
         st.rerun()

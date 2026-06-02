@@ -2,7 +2,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from utils.portfolio import calcular_alocacao_atual, calcular_carteira
+from utils.portfolio import calcular_alocacao_atual, calcular_carteira, fmt_brl
 from utils.profile import get_alocacao_alvo, get_profile
 
 CLASSES_PADRAO = ["Ações", "FIIs", "Renda Fixa", "Alternativo"]
@@ -37,7 +37,7 @@ perfil = get_profile()
 
 st.header("Visão Geral")
 col1, col2, col3 = st.columns(3)
-col1.metric("Valor total", f"R$ {valor_total:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+col1.metric("Valor total", fmt_brl(valor_total))
 col2.metric("Número de ativos", num_ativos)
 col3.metric("Perfil do investidor", perfil.capitalize())
 
@@ -99,13 +99,17 @@ for _, row in df.iterrows():
 if not alertas:
     st.success("Carteira equilibrada — todas as classes dentro da faixa de 3% do alvo.")
 
-st.header("Gráfico")
+st.header("Distribuição da Carteira")
+classes_relevantes = [k for k, v in alocacao_alvo.items() if v > 0]
+alocacao_atual_graf = {c: alocacao_atual.get(c, 0.0) for c in classes_relevantes}
+alocacao_alvo_graf = {c: alocacao_alvo[c] for c in classes_relevantes}
+
 col_esq, col_dir = st.columns(2)
 
 with col_esq:
     fig_atual = go.Figure(go.Pie(
-        labels=list(alocacao_atual.keys()),
-        values=list(alocacao_atual.values()),
+        labels=list(alocacao_atual_graf.keys()),
+        values=list(alocacao_atual_graf.values()),
         hole=0.35,
         textinfo="label+percent",
     ))
@@ -114,8 +118,8 @@ with col_esq:
 
 with col_dir:
     fig_alvo = go.Figure(go.Pie(
-        labels=list(alocacao_alvo.keys()),
-        values=list(alocacao_alvo.values()),
+        labels=list(alocacao_alvo_graf.keys()),
+        values=list(alocacao_alvo_graf.values()),
         hole=0.35,
         textinfo="label+percent",
     ))

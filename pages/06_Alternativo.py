@@ -10,15 +10,11 @@ from utils.market_data import (
     get_dados_alternativos,
     get_dados_ativo_alternativo,
 )
-from utils.portfolio import get_ativos_por_classe
+from utils.portfolio import fmt_brl as _fmt_brl, get_ativos_por_classe
 
 
 def _fmt_usd(v: float) -> str:
     return f"$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-
-def _fmt_brl(v: float) -> str:
-    return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def _cor_var(v: float) -> str:
@@ -59,7 +55,7 @@ else:
             else:
                 c1.metric("Preço (BRL)", _fmt_brl(preco_atual),
                           delta=f"{dados['variacao_diaria_pct']:+.2f}%")
-                c2.metric("Cotação USD", "—")
+                c2.metric("Cotação (BRL)", "—")
             c3.metric("Variação 7 dias",
                       f"{dados['variacao_7d_pct']:+.2f}%" if dados["variacao_7d_pct"] else "—")
             c4.metric("Variação 30 dias",

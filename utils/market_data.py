@@ -7,8 +7,9 @@ def get_preco_atual(ticker: str, classe: str) -> float | None:
     try:
         if classe in ("Ações", "FIIs"):
             symbol = ticker + ".SA"
-        elif classe == "Alternativo" and ticker == "BTC-USD":
-            symbol = ticker
+        elif classe == "Alternativo":
+            t = ticker.upper()
+            symbol = ticker if (t.endswith("-USD") or t.endswith("=F")) else ticker + ".SA"
         else:
             return None
 
@@ -121,18 +122,17 @@ def get_dados_fii(ticker: str) -> dict | None:
         return None
 
 
-def get_dados_yfinance_fii(ticker: str) -> dict:
+def get_dados_yfinance_fii(ticker: str, pvp_cadastrado: float | None = None) -> dict:
     """Retorna indicadores de mercado de um FII via yfinance.
 
-    Se pvp não disponível no yfinance, usa o valor cadastrado pelo usuário.
+    pvp_cadastrado: valor informado pelo usuário no cadastro do ativo.
     """
     vazio = {
         "dy_anual": None, "dy_mensal": None, "dividend_rate": None,
-        "pvp": None, "liquidez": None,
+        "pvp": pvp_cadastrado, "liquidez": None,
         "preco_52s_min": None, "preco_52s_max": None,
     }
     try:
-        from utils.portfolio import get_ativos
         info = yf.Ticker(ticker + ".SA").info
 
         dy_raw = info.get("dividendYield")
@@ -142,16 +142,11 @@ def get_dados_yfinance_fii(ticker: str) -> dict:
             dy_anual = None
         dy_mensal = round(dy_anual / 12, 4) if dy_anual is not None else None
 
-        pvp_cadastro = next(
-            (a.get("pvp") for a in get_ativos() if a["ticker"] == ticker.upper()),
-            None,
-        )
-
         return {
             "dy_anual": dy_anual,
             "dy_mensal": dy_mensal,
             "dividend_rate": info.get("dividendRate"),
-            "pvp": pvp_cadastro,
+            "pvp": pvp_cadastrado,
             "liquidez": info.get("averageVolume"),
             "preco_52s_min": info.get("fiftyTwoWeekLow"),
             "preco_52s_max": info.get("fiftyTwoWeekHigh"),
@@ -258,11 +253,12 @@ def get_dados_alternativos() -> dict | None:
     """Retorna preço e variações de Bitcoin, Ouro e Prata em USD."""
     _tickers = {"Bitcoin": "BTC-USD", "Ouro": "GC=F", "Prata": "SI=F"}
     try:
+        import pandas as pd
         dados = yf.download(
             list(_tickers.values()), period="1y",
             auto_adjust=True, progress=False,
         )
-        closes = dados["Close"].dropna()
+        closes = dados["Close"] if isinstance(dados.columns, pd.MultiIndex) else dados
         resultado = {}
         for nome, ticker in _tickers.items():
             serie = closes[ticker].dropna()

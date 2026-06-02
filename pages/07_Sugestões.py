@@ -3,12 +3,30 @@ import streamlit as st
 from utils.market_data import (
     get_contexto_macro,
     get_dados_fundamentus,
+    get_dados_yfinance_fii,
     get_preco_atual,
     get_preco_entrada_saida,
 )
 from utils.portfolio import get_ativos
 from utils.profile import get_profile
 from utils.sugestoes import agrupar_por_classe, get_objetivo_combinado, get_sugestoes
+
+
+@st.cache_data(ttl=300)
+def _buscar_dados_sugestao(ticker: str, classe: str) -> dict:
+    """Busca preço, dados fundamentais e entrada/saída — cacheado por 5 min."""
+    preco = get_preco_atual(ticker, classe)
+    dy_display = None
+    if classe == "Ações":
+        fund = get_dados_fundamentus(ticker)
+        if fund and fund.get("dy"):
+            dy_display = f"DY: {fund['dy']:.1f}%"
+    elif classe == "FIIs":
+        fii = get_dados_yfinance_fii(ticker)
+        if fii and fii.get("dy_mensal"):
+            dy_display = f"DY mensal: {fii['dy_mensal']:.2f}%"
+    entrada_saida = get_preco_entrada_saida(ticker, classe) if classe != "Renda Fixa" else None
+    return {"preco": preco, "dy_display": dy_display, "entrada_saida": entrada_saida}
 
 _OBJETIVO_MAP = {
     "Geração de renda": "renda",
@@ -121,7 +139,8 @@ for i, classe in enumerate(_ORDEM_CLASSES):
         motivo = ativo["motivo"]
         objetivos = ativo.get("objetivos", "")
 
-        precos = get_preco_entrada_saida(ticker, classe) if classe != "Renda Fixa" else None
+        sug = _buscar_dados_sugestao(ticker, classe)
+        precos = sug["entrada_saida"]
 
         with st.container(border=True):
             # Linha 1 — identificação + preço + DY + upside
@@ -149,11 +168,8 @@ for i, classe in enumerate(_ORDEM_CLASSES):
                     st.write("Preço indisponível")
 
             with c3:
-                if classe in ("Ações", "FIIs"):
-                    fund = get_dados_fundamentus(ticker)
-                    dy = fund.get("dy") if fund else None
-                    if dy:
-                        st.write(f"DY: {dy:.1f}%")
+                if sug["dy_display"]:
+                    st.write(sug["dy_display"])
 
             with c4:
                 if precos and precos.get("upside") is not None:

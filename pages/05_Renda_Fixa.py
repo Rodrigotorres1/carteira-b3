@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 from utils.market_data import get_indices_renda_fixa
-from utils.portfolio import calcular_renda_fixa
+from utils.portfolio import calcular_renda_fixa, fmt_brl as _brl
 
 _COR_STATUS = {
     "Vencido":        "color: #FF4B4B",
@@ -11,10 +11,6 @@ _COR_STATUS = {
     "Longo prazo":    "color: #00A878",
     "Sem vencimento": "",
 }
-
-
-def _brl(valor: float) -> str:
-    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def _taxa_label(a: dict) -> str:

@@ -3,13 +3,8 @@ import plotly.express as px
 import streamlit as st
 
 from utils.market_data import get_dados_fii, get_dados_yfinance_fii
-from utils.portfolio import calcular_score_fii, get_ativos_por_classe
+from utils.portfolio import calcular_score_fii, fmt_brl, get_ativos_por_classe
 from utils.profile import get_profile
-
-
-def _fmt_brl(valor: float) -> str:
-    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
 
 st.title("Painel de FIIs")
 
@@ -20,12 +15,20 @@ if not fiis:
     st.stop()
 
 perfil = get_profile()
+
+with st.spinner("Carregando dados de mercado..."):
+    dados_mercado = {a["ticker"]: get_dados_fii(a["ticker"]) for a in fiis}
+    dados_fund = {
+        a["ticker"]: get_dados_yfinance_fii(a["ticker"], pvp_cadastrado=a.get("pvp"))
+        for a in fiis
+    }
+
 resumo = []
 
 for ativo in fiis:
     ticker = ativo["ticker"]
-    dados = get_dados_fii(ticker)
-    fund = get_dados_yfinance_fii(ticker)
+    dados = dados_mercado[ticker]
+    fund = dados_fund[ticker]
 
     with st.expander(f"{ticker}" + (f" — {dados['nome']}" if dados else ""), expanded=False):
         if dados is None:
@@ -43,17 +46,13 @@ for ativo in fiis:
         p_min = fund["preco_52s_min"]
         p_max = fund["preco_52s_max"]
         range_52s = (
-            f"{_fmt_brl(p_min)} / {_fmt_brl(p_max)}"
+            f"{fmt_brl(p_min)} / {fmt_brl(p_max)}"
             if p_min and p_max else "—"
         )
 
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Preço atual", _fmt_brl(dados["preco_atual"]))
-        col2.metric(
-            "Variação diária",
-            f"{dados['variacao_pct']:+.2f}%",
-            delta=f"{dados['variacao_pct']:.2f}%",
-        )
+        col1.metric("Preço atual", fmt_brl(dados["preco_atual"]))
+        col2.metric("Variação diária", f"{dados['variacao_pct']:+.2f}%")
         col3.metric(
             "DY mensal",
             f"{fund['dy_mensal']:.2f}%" if fund["dy_mensal"] else "—",
@@ -65,6 +64,7 @@ for ativo in fiis:
             dados["preco_atual"],
             ativo["preco_medio"],
             perfil,
+            fund_data=fund,
         )
 
         cor = resultado["cor"]
@@ -106,7 +106,7 @@ for ativo in fiis:
 
         resumo.append({
             "Ticker": ticker,
-            "Preço Atual": f"R$ {dados['preco_atual']:.2f}",
+            "Preço Atual": fmt_brl(dados["preco_atual"]),
             "Variação %": f"{dados['variacao_pct']:+.2f}%",
             "DY Mensal %": f"{fund['dy_mensal']:.2f}%" if fund["dy_mensal"] else "—",
             "Mín. / Máx. 52s": range_52s,

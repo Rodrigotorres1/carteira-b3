@@ -3,13 +3,8 @@ import plotly.express as px
 import streamlit as st
 
 from utils.market_data import get_dados_acao, get_dados_fundamentus
-from utils.portfolio import calcular_score_acao, get_ativos_por_classe
+from utils.portfolio import calcular_score_acao, fmt_brl, get_ativos_por_classe
 from utils.profile import get_profile
-
-
-def _fmt_brl(valor: float) -> str:
-    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
 
 st.title("Painel de Ações")
 
@@ -20,11 +15,18 @@ if not acoes:
     st.stop()
 
 perfil = get_profile()
+
+with st.spinner("Carregando dados de mercado..."):
+    dados_mercado = {a["ticker"]: get_dados_acao(a["ticker"]) for a in acoes}
+    dados_fund = {a["ticker"]: get_dados_fundamentus(a["ticker"]) for a in acoes}
+
 resumo = []
 
 for ativo in acoes:
     ticker = ativo["ticker"]
-    dados = get_dados_acao(ticker)
+    dados = dados_mercado[ticker]
+    fund = dados_fund[ticker]
+    dy = fund.get("dy") if fund else None
 
     with st.expander(f"{ticker}" + (f" — {dados['nome']}" if dados else ""), expanded=False):
         if dados is None:
@@ -40,16 +42,10 @@ for ativo in acoes:
             continue
 
         hist = dados["historico"]
-        fund = get_dados_fundamentus(ticker)
-        dy = fund.get("dy") if fund else None
 
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Preço atual", _fmt_brl(dados["preco_atual"]))
-        col2.metric(
-            "Variação diária",
-            f"{dados['variacao_pct']:+.2f}%",
-            delta=f"{dados['variacao_pct']:.2f}%",
-        )
+        col1.metric("Preço atual", fmt_brl(dados["preco_atual"]))
+        col2.metric("Variação diária", f"{dados['variacao_pct']:+.2f}%")
         col3.metric("Dividend Yield", f"{dy:.1f}%" if dy else "—")
         col4.metric("P/L", f"{dados['pl']:.1f}" if dados["pl"] else "—")
 
@@ -58,6 +54,7 @@ for ativo in acoes:
             dados["preco_atual"],
             ativo["preco_medio"],
             perfil,
+            fund_data=fund,
         )
 
         cor = resultado["cor"]
@@ -98,7 +95,7 @@ for ativo in acoes:
 
         resumo.append({
             "Ticker": ticker,
-            "Preço Atual": f"R$ {dados['preco_atual']:.2f}",
+            "Preço Atual": fmt_brl(dados["preco_atual"]),
             "Variação %": f"{dados['variacao_pct']:+.2f}%",
             "DY %": f"{dy:.1f}%" if dy else "—",
             "P/L": f"{dados['pl']:.1f}" if dados["pl"] else "—",
