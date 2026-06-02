@@ -1,7 +1,6 @@
-import json
 from datetime import date
-from pathlib import Path
 
+from utils.database import carregar_dados, salvar_dados
 from utils.market_data import (
     get_dados_fundamentus,
     get_dados_yfinance_fii,
@@ -9,8 +8,6 @@ from utils.market_data import (
     get_preco_atual,
     get_recomendacoes_analistas,
 )
-
-_DATA_PATH = Path(__file__).parent.parent / "data" / "carteira.json"
 
 # ── Constantes de módulo ──────────────────────────────────────────────────────
 SELIC_FALLBACK = 10.5
@@ -29,17 +26,11 @@ def fmt_brl(valor: float | None) -> str:
 
 
 def _load() -> dict:
-    if not _DATA_PATH.exists():
-        _DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _dump({})
-        return {}
-    with open(_DATA_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return carregar_dados()
 
 
 def _dump(data: dict) -> None:
-    with open(_DATA_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    salvar_dados(data)
 
 
 def get_ativos() -> list:

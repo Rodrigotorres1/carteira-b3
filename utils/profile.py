@@ -1,7 +1,4 @@
-import json
-from pathlib import Path
-
-_DATA_PATH = Path(__file__).parent.parent / "data" / "carteira.json"
+from utils.database import carregar_dados, salvar_dados
 
 _ALOCACOES = {
     "conservador": {"acoes": 15, "fiis": 20, "renda_fixa": 60, "alternativos": 5},
@@ -11,17 +8,11 @@ _ALOCACOES = {
 
 
 def _load() -> dict:
-    if not _DATA_PATH.exists():
-        _DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _dump({})
-        return {}
-    with open(_DATA_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return carregar_dados()
 
 
 def _dump(data: dict) -> None:
-    with open(_DATA_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    salvar_dados(data)
 
 
 def profile_exists() -> bool:
