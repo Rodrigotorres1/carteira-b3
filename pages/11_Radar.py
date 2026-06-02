@@ -7,6 +7,8 @@ from utils.market_data import get_dados_radar
 from utils.portfolio import fmt_brl, get_ativos
 from utils.sugestoes import UNIVERSO_ACOES, UNIVERSO_FIIS
 
+_COR_ESTILO = {"Valor": "blue", "Crescimento": "orange", "Híbrido": "gray"}
+
 st.title("Radar de Oportunidades")
 st.caption("Varredura automática do mercado em busca de ativos com bom potencial.")
 
@@ -59,19 +61,16 @@ if "radar_resultados" not in st.session_state:
 
 st.caption(f"Última atualização: {st.session_state['radar_ts']}")
 
-todos = st.session_state["radar_resultados"]
+todos = list(st.session_state["radar_resultados"])
 
-# Aplicar filtro de mínimo de dados
 if minimo_dados == "Apenas com DY disponível":
     todos = [r for r in todos if r["dy"] is not None]
 elif minimo_dados == "Apenas com upside disponível":
     todos = [r for r in todos if r["upside"] is not None]
 
-# Aplicar filtro de classe (pode ter mudado após execução)
 if filtro_classe != "Ambos":
     todos = [r for r in todos if r["classe"] == filtro_classe]
 
-# Ordenar por critério
 _SORT_KEY = {
     "Melhor oportunidade geral": lambda r: r["score_oportunidade"],
     "Maior dividend yield":      lambda r: r["dy"] or 0,
@@ -87,10 +86,11 @@ if not resultados_ord:
 
 ativos_carteira = {a["ticker"] for a in get_ativos()}
 top3 = resultados_ord[:3]
+top3_tickers = {r["ticker"] for r in top3}
 
 st.subheader(f"{len(resultados_ord)} ativos encontrados")
 
-# Top 3 destaques
+# ── Top 3 ─────────────────────────────────────────────────────────────────────
 cols_top = st.columns(3)
 for col, r in zip(cols_top, top3):
     with col:
@@ -103,29 +103,33 @@ for col, r in zip(cols_top, top3):
                 delta_color="normal" if na_carteira else "off",
             )
             st.write(fmt_brl(r["preco_atual"]))
-            if criterio == "Maior dividend yield" and r["dy"]:
-                st.caption(f"DY: {r['dy']:.1f}%")
-            elif criterio == "Mais barato (P/L)" and r["pl"]:
-                st.caption(f"P/L: {r['pl']:.1f}")
-            elif criterio in ("P/VP abaixo de 1", "Melhor oportunidade geral") and r["pvp"]:
-                st.caption(f"P/VP: {r['pvp']:.2f}")
-            elif r["upside"] is not None:
-                st.caption(f"Upside: {r['upside']:+.1f}%")
 
-# Tabela completa
-top3_tickers = {r["ticker"] for r in top3}
+            estilo = r.get("estilo", "Híbrido")
+            cor = _COR_ESTILO.get(estilo, "gray")
+            st.markdown(
+                f"<span style='background-color:{cor};color:white;"
+                f"padding:2px 8px;border-radius:10px;font-size:0.75rem'>"
+                f"{estilo}</span>",
+                unsafe_allow_html=True,
+            )
 
+            resumo = r.get("resumo", "")
+            if resumo:
+                st.caption(resumo)
+
+# ── Tabela completa ───────────────────────────────────────────────────────────
 linhas = []
 for r in resultados_ord:
     linhas.append({
-        "Ticker":    r["ticker"],
-        "Classe":    r["classe"],
-        "Preço":     fmt_brl(r["preco_atual"]),
-        "DY %":      f"{r['dy']:.1f}%" if r["dy"] is not None else "—",
-        "P/L":       f"{r['pl']:.1f}"  if r["pl"]  is not None else "—",
-        "P/VP":      f"{r['pvp']:.2f}" if r["pvp"] is not None else "—",
-        "Upside %":  f"{r['upside']:+.1f}%" if r["upside"] is not None else "—",
-        "Score":     r["score_oportunidade"],
+        "Ticker":   r["ticker"],
+        "Classe":   r["classe"],
+        "Estilo":   r.get("estilo", "—"),
+        "Preço":    fmt_brl(r["preco_atual"]),
+        "DY %":     f"{r['dy']:.1f}%"     if r["dy"]     is not None else "—",
+        "P/L":      f"{r['pl']:.1f}"      if r["pl"]     is not None else "—",
+        "P/VP":     f"{r['pvp']:.2f}"     if r["pvp"]    is not None else "—",
+        "Upside %": f"{r['upside']:+.1f}%" if r["upside"] is not None else "—",
+        "Score":    r["score_oportunidade"],
         "_carteira": r["ticker"] in ativos_carteira,
         "_top3":     r["ticker"] in top3_tickers,
     })
@@ -153,3 +157,46 @@ st.caption(
     "Scores baseados em dados públicos. "
     "Não constituem recomendação de investimento."
 )
+
+# ── Detalhes por ativo ────────────────────────────────────────────────────────
+st.divider()
+ticker_detalhe = st.selectbox(
+    "Ver detalhes de um ativo:",
+    options=[r["ticker"] for r in resultados_ord],
+)
+
+ativo_sel = next((r for r in resultados_ord if r["ticker"] == ticker_detalhe), None)
+if ativo_sel:
+    with st.container(border=True):
+        est = ativo_sel.get("estilo", "Híbrido")
+        cor = _COR_ESTILO.get(est, "gray")
+
+        cab1, cab2 = st.columns([3, 1])
+        with cab1:
+            st.subheader(ativo_sel["ticker"])
+            st.markdown(
+                f"<span style='background-color:{cor};color:white;"
+                f"padding:2px 8px;border-radius:10px;font-size:0.75rem'>"
+                f"{est}</span>",
+                unsafe_allow_html=True,
+            )
+        with cab2:
+            st.metric("Score", f"{ativo_sel['score_oportunidade']}/10")
+
+        justs = ativo_sel.get("justificativas", [])
+        pens  = ativo_sel.get("penalidades", [])
+
+        if justs:
+            st.markdown("**Pontos positivos:**")
+            for j in justs:
+                st.success(f"✓ {j}")
+
+        if pens:
+            st.markdown("**Pontos de atenção:**")
+            for p in pens:
+                st.warning(f"⚠️ {p}")
+
+        st.caption(
+            "Score calculado com base em dados públicos do Fundamentus e yfinance. "
+            "Não é recomendação de investimento."
+        )

@@ -613,6 +613,146 @@ def get_proximo_dividendo(ticker: str, classe: str) -> dict | None:
         return None
 
 
+def classificar_estilo(
+    pl: float | None,
+    dy: float | None,
+    roe: float | None,
+    pvp: float | None,
+    selic: float,
+) -> str:
+    """Classifica o ativo como Valor, Crescimento ou Híbrido."""
+    if pl is not None and 0 < pl < 15 and dy is not None and dy > selic * 0.7:
+        return "Valor"
+    if roe is not None and roe > 15 and (pl is None or pl > 15):
+        return "Crescimento"
+    return "Híbrido"
+
+
+def calcular_score_radar(dados: dict, selic: float) -> dict:
+    """Calcula score de oportunidade (0-10) com justificativas por estilo."""
+    pl     = dados.get("pl")
+    dy     = dados.get("dy")
+    pvp    = dados.get("pvp")
+    roe    = dados.get("roe")
+    upside = dados.get("upside")
+    estilo = dados.get("estilo", "Híbrido")
+
+    score = 0
+    justificativas: list[str] = []
+    penalidades: list[str]    = []
+
+    # ── Penalidades universais ──────────────────────────────────────────────
+    if pl is not None and pl < 0:
+        score -= 3
+        penalidades.append(
+            f"P/L negativo ({pl:.1f}): empresa com prejuízo. Alto risco."
+        )
+    if pvp is not None and pvp > 3.0:
+        score -= 1
+        penalidades.append(
+            f"P/VP muito elevado ({pvp:.2f}): cota negociada com prêmio alto sobre o patrimônio."
+        )
+
+    # ── Score por estilo ────────────────────────────────────────────────────
+    if estilo == "Valor":
+        if dy is not None and dy >= selic:
+            score += 3
+            justificativas.append(
+                f"DY de {dy:.1f}% supera a Selic ({selic:.1f}%). Boa geração de renda."
+            )
+        elif dy is not None and dy >= selic * 0.8:
+            score += 1
+            justificativas.append(
+                f"DY de {dy:.1f}% próximo da Selic ({selic:.1f}%)."
+            )
+        elif dy is not None:
+            penalidades.append(
+                f"DY de {dy:.1f}% abaixo da Selic. Pouco atrativo para geração de renda."
+            )
+
+        if pl is not None and 0 < pl < 10:
+            score += 2
+            justificativas.append(f"P/L de {pl:.1f}: ativo barato em relação ao lucro.")
+        elif pl is not None and 0 < pl < 15:
+            score += 1
+            justificativas.append(f"P/L de {pl:.1f}: valuation razoável.")
+
+        if pvp is not None and pvp < 1.0:
+            score += 2
+            justificativas.append(
+                f"P/VP de {pvp:.2f}: cota abaixo do valor patrimonial. Margem de segurança."
+            )
+        elif pvp is not None and pvp < 1.2:
+            score += 1
+            justificativas.append(f"P/VP de {pvp:.2f}: próximo do valor patrimonial.")
+
+        if upside is not None and upside > 15:
+            score += 2
+            justificativas.append(f"Upside de +{upside:.1f}% segundo analistas.")
+        elif upside is not None and upside > 5:
+            score += 1
+            justificativas.append(f"Upside moderado de +{upside:.1f}%.")
+
+    elif estilo == "Crescimento":
+        if roe is not None and roe > 25:
+            score += 3
+            justificativas.append(
+                f"ROE de {roe:.1f}%: retorno sobre patrimônio excelente. Empresa altamente eficiente."
+            )
+        elif roe is not None and roe > 15:
+            score += 2
+            justificativas.append(f"ROE de {roe:.1f}%: boa eficiência no uso do capital.")
+        elif roe is not None and roe > 10:
+            score += 1
+            justificativas.append(f"ROE de {roe:.1f}%: eficiência razoável.")
+        else:
+            penalidades.append("ROE baixo para empresa de crescimento.")
+
+        if upside is not None and upside > 20:
+            score += 3
+            justificativas.append(
+                f"Upside de +{upside:.1f}%: ativo com desconto significativo em relação ao alvo dos analistas."
+            )
+        elif upside is not None and upside > 10:
+            score += 2
+            justificativas.append(f"Upside de +{upside:.1f}% segundo analistas.")
+        elif upside is not None and upside > 0:
+            score += 1
+            justificativas.append(f"Upside leve de +{upside:.1f}%.")
+        else:
+            penalidades.append("Sem upside ou downside segundo analistas.")
+
+        if pl is not None and pl > 0:
+            justificativas.append(
+                f"P/L de {pl:.1f}: típico de empresa de crescimento. Avalie pelo ROE e não pelo P/L."
+            )
+
+    else:  # Híbrido
+        if dy is not None and dy > selic * 0.7:
+            score += 1
+            justificativas.append(f"DY de {dy:.1f}%.")
+        if upside is not None and upside > 15:
+            score += 2
+            justificativas.append(f"Upside de +{upside:.1f}%.")
+        if pvp is not None and pvp < 1.0:
+            score += 2
+            justificativas.append(f"P/VP de {pvp:.2f}: abaixo do patrimonial.")
+        if roe is not None and roe > 15:
+            score += 1
+            justificativas.append(f"ROE de {roe:.1f}%.")
+
+    score_final = max(0, min(10, score))
+    resumo = justificativas[0] if justificativas else (penalidades[0] if penalidades else "")
+
+    return {
+        "score_oportunidade": score_final,
+        "estilo":             estilo,
+        "justificativas":     justificativas,
+        "penalidades":        penalidades,
+        "resumo":             resumo,
+    }
+
+
 def get_dados_radar(ticker: str, classe: str) -> dict | None:
     """Busca indicadores fundamentalistas para varredura do radar de oportunidades."""
     try:
@@ -620,7 +760,7 @@ def get_dados_radar(ticker: str, classe: str) -> dict | None:
         if not preco_atual:
             return None
 
-        pl = dy = pvp = upside = None
+        pl = dy = pvp = roe = upside = None
 
         if classe == "Ações":
             fund = get_dados_fundamentus(ticker)
@@ -628,6 +768,7 @@ def get_dados_radar(ticker: str, classe: str) -> dict | None:
                 pl  = fund.get("pl")
                 dy  = fund.get("dy")
                 pvp = fund.get("pvp")
+                roe = fund.get("roe")
         elif classe == "FIIs":
             fii = get_dados_yfinance_fii(ticker)
             if fii:
@@ -638,32 +779,22 @@ def get_dados_radar(ticker: str, classe: str) -> dict | None:
         if es:
             upside = es.get("upside")
 
-        indices = get_indices_renda_fixa()
-        selic = indices["selic"]
+        selic = get_indices_renda_fixa()["selic"]
+        estilo = classificar_estilo(pl, dy, roe, pvp, selic)
 
-        score = 0
-        if dy and dy > selic:
-            score += 2
-        elif dy and dy > selic * 0.8:
-            score += 1
-        if pvp is not None and pvp < 1.0:
-            score += 2
-        elif pvp is not None and pvp < 1.1:
-            score += 1
-        if pl is not None and 0 < pl < 12:
-            score += 2
-        if upside is not None and upside > 15:
-            score += 2
+        base = {"pl": pl, "dy": dy, "pvp": pvp, "roe": roe, "upside": upside, "estilo": estilo}
+        resultado_score = calcular_score_radar(base, selic)
 
         return {
-            "ticker":            ticker,
-            "classe":            classe,
-            "preco_atual":       preco_atual,
-            "pl":                pl,
-            "dy":                dy,
-            "pvp":               pvp,
-            "upside":            upside,
-            "score_oportunidade": min(10, score),
+            "ticker":      ticker,
+            "classe":      classe,
+            "preco_atual": preco_atual,
+            "pl":          pl,
+            "dy":          dy,
+            "pvp":         pvp,
+            "roe":         roe,
+            "upside":      upside,
+            **resultado_score,
         }
     except Exception:
         return None
