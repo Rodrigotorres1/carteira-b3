@@ -14,6 +14,40 @@ from utils.portfolio import (
 )
 from utils.profile import get_alocacao_alvo, get_profile, profile_exists, save_profile
 
+# ── Callback de recuperação de senha ─────────────────────────────────────────
+params = st.query_params
+
+if "type" in params and params["type"] == "recovery":
+    st.session_state["recovery_mode"] = True
+    st.query_params.clear()
+
+if "access_token" in params:
+    try:
+        from utils.database import get_supabase_client
+        supabase = get_supabase_client()
+        supabase.auth.set_session(
+            params["access_token"],
+            params.get("refresh_token", ""),
+        )
+        session = supabase.auth.get_session()
+        if session and session.user:
+            st.session_state["user"]    = session.user
+            st.session_state["session"] = session.session
+            if params.get("type") == "recovery":
+                st.session_state["recovery_mode"] = True
+        st.query_params.clear()
+        st.rerun()
+    except Exception:
+        pass
+
+if st.session_state.get("recovery_mode"):
+    from components.auth import render_nova_senha
+    st.set_page_config(page_title="Carteira B3", page_icon="📊", layout="wide",
+                       initial_sidebar_state="collapsed")
+    render_nova_senha()
+    st.stop()
+
+# ── Autenticação normal ───────────────────────────────────────────────────────
 _autenticado = is_authenticated()
 
 st.set_page_config(

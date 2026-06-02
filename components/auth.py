@@ -3,6 +3,34 @@ import streamlit as st
 from utils.database import login, signup
 
 
+def render_nova_senha() -> None:
+    st.title("Carteira B3")
+    st.subheader("Definir nova senha")
+
+    with st.form("form_nova_senha"):
+        nova_senha = st.text_input("Nova senha", type="password", help="Mínimo 6 caracteres")
+        confirmar  = st.text_input("Confirmar nova senha", type="password")
+        submit     = st.form_submit_button("Salvar nova senha", use_container_width=True)
+
+        if submit:
+            if not nova_senha or not confirmar:
+                st.error("Preencha todos os campos.")
+            elif len(nova_senha) < 6:
+                st.error("A senha precisa ter pelo menos 6 caracteres.")
+            elif nova_senha != confirmar:
+                st.error("As senhas não coincidem.")
+            else:
+                from utils.database import atualizar_senha
+                with st.spinner("Salvando..."):
+                    result = atualizar_senha(nova_senha)
+                if result["success"]:
+                    st.success("Senha atualizada com sucesso!")
+                    st.session_state.pop("recovery_mode", None)
+                    st.rerun()
+                else:
+                    st.error(f"Erro ao atualizar senha: {result['error']}")
+
+
 def render_login() -> None:
     st.title("Carteira B3")
     st.caption("Gerencie seus investimentos com inteligência.")

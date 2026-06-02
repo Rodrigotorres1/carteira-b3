@@ -50,6 +50,15 @@ def logout() -> None:
     st.session_state.pop("session", None)
 
 
+def atualizar_senha(nova_senha: str) -> dict:
+    try:
+        supabase = get_supabase_client()
+        supabase.auth.update_user({"password": nova_senha})
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 def resetar_senha(email: str) -> dict:
     try:
         supabase = get_supabase_client()
