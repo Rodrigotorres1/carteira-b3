@@ -174,7 +174,8 @@ else:
             c1, c2, c3, c4, c5 = st.columns([3, 2, 3, 1, 1])
             c1.write(a["ticker"]); c2.write(str(a["quantidade"]))
             c3.write(fmt_brl(a["preco_medio"]))
-            c4.write(f"{a['pvp']:.2f}" if a.get("pvp") is not None else "-")
+            pvp_val = a.get("pvp")
+            c4.write(f"{pvp_val:.2f}" if pvp_val else "-")
             with c5: _btn_editar(a["ticker"])
 
     if renda_fixa:
@@ -192,7 +193,7 @@ else:
             with c6: _btn_editar(a["ticker"])
 
     if alternativos:
-        st.subheader("Alternativos")
+        st.subheader("Alternativo")
         h1, h2, h3, h4 = st.columns([3, 3, 3, 1])
         h1.markdown("**Ticker**"); h2.markdown("**Quantidade**")
         h3.markdown("**Preço Médio**"); h4.write("")
@@ -211,7 +212,6 @@ else:
         ativo_ed = next((a for a in ativos if a["ticker"] == ticker_editando), None)
         if ativo_ed:
             st.divider()
-            st.subheader(f"Editando: {ticker_editando}")
             classe_ed = ativo_ed["classe"]
 
             def _parse_data_str(s: str | None) -> date:
@@ -221,42 +221,46 @@ else:
                 except Exception:
                     return date.today()
 
-            with st.form(f"form_edicao_{ticker_editando}"):
-                if classe_ed == "Ações":
-                    nova_qtd    = st.number_input("Quantidade", min_value=1, step=1, value=int(ativo_ed["quantidade"]))
-                    novo_preco  = st.number_input("Preço Médio (R$)", min_value=0.01, format="%.2f", value=float(ativo_ed["preco_medio"]))
+            with st.container(border=True):
+                st.subheader(f"Editando: {ticker_editando}")
+                st.caption(f"Classe: {classe_ed} | Ticker: {ticker_editando}")
+                st.divider()
 
-                elif classe_ed == "FIIs":
-                    nova_qtd    = st.number_input("Quantidade", min_value=1, step=1, value=int(ativo_ed["quantidade"]))
-                    novo_preco  = st.number_input("Preço Médio (R$)", min_value=0.01, format="%.2f", value=float(ativo_ed["preco_medio"]))
-                    novo_pvp    = st.number_input("P/VP atual", min_value=0.01, max_value=5.0, step=0.01, format="%.2f",
-                                                  value=float(ativo_ed.get("pvp") or 1.0))
+                with st.form(f"form_edicao_{ticker_editando}"):
+                    if classe_ed == "Ações":
+                        nova_qtd   = st.number_input("Quantidade", min_value=1, step=1, value=int(ativo_ed["quantidade"]))
+                        novo_preco = st.number_input("Preço Médio (R$)", min_value=0.01, format="%.2f", value=float(ativo_ed["preco_medio"]))
 
-                elif classe_ed == "Renda Fixa":
-                    novo_nome   = st.text_input("Nome do ativo", value=ativo_ed["ticker"])
-                    novo_valor  = st.number_input("Valor Investido (R$)", min_value=0.01, format="%.2f", value=float(ativo_ed["preco_medio"]))
-                    _tipos      = ["Prefixado", "CDI+", "% do CDI", "IPCA+"]
-                    _tipo_atual = ativo_ed.get("tipo_rentabilidade", "Prefixado")
-                    novo_tipo   = st.selectbox("Tipo de Rentabilidade", _tipos,
-                                               index=_tipos.index(_tipo_atual) if _tipo_atual in _tipos else 0)
-                    nova_taxa   = st.number_input("Taxa (% a.a.)", min_value=0.01, format="%.2f",
-                                                  value=float(ativo_ed.get("taxa") or 10.0))
-                    nova_aplic  = st.date_input("Data de Aplicação", value=_parse_data_str(ativo_ed.get("data_aplicacao")))
-                    novo_venc   = st.date_input("Data de Vencimento", value=_parse_data_str(ativo_ed.get("vencimento")))
+                    elif classe_ed == "FIIs":
+                        nova_qtd   = st.number_input("Quantidade", min_value=1, step=1, value=int(ativo_ed["quantidade"]))
+                        novo_preco = st.number_input("Preço Médio (R$)", min_value=0.01, format="%.2f", value=float(ativo_ed["preco_medio"]))
+                        novo_pvp   = st.number_input("P/VP atual", min_value=0.01, max_value=5.0, step=0.01, format="%.2f",
+                                                     value=float(ativo_ed.get("pvp") or 1.0))
 
-                else:  # Alternativo
-                    t_upper = ativo_ed["ticker"].upper()
-                    casas_ed = 8 if ("BTC" in t_upper or "ETH" in t_upper) else 4
-                    nova_qtd   = st.number_input("Quantidade", min_value=0.00000001, format="%.8f",
-                                                 value=float(ativo_ed["quantidade"]))
-                    novo_preco = st.number_input("Preço Médio (R$)", min_value=0.01, format="%.2f",
-                                                 value=float(ativo_ed["preco_medio"]))
+                    elif classe_ed == "Renda Fixa":
+                        novo_nome  = st.text_input("Nome do ativo", value=ativo_ed["ticker"])
+                        novo_valor = st.number_input("Valor Investido (R$)", min_value=0.01, format="%.2f", value=float(ativo_ed["preco_medio"]))
+                        _tipos     = ["Prefixado", "CDI+", "% do CDI", "IPCA+"]
+                        _tipo_at   = ativo_ed.get("tipo_rentabilidade", "Prefixado")
+                        novo_tipo  = st.selectbox("Tipo de Rentabilidade", _tipos,
+                                                  index=_tipos.index(_tipo_at) if _tipo_at in _tipos else 0)
+                        nova_taxa  = st.number_input("Taxa (% a.a.)", min_value=0.01, format="%.2f",
+                                                     value=float(ativo_ed.get("taxa") or 10.0))
+                        nova_aplic = st.date_input("Data de Aplicação", value=_parse_data_str(ativo_ed.get("data_aplicacao")))
+                        novo_venc  = st.date_input("Data de Vencimento",  value=_parse_data_str(ativo_ed.get("vencimento")))
 
-                col_s, col_c = st.columns(2)
-                with col_s:
-                    salvar   = st.form_submit_button("Salvar alterações", use_container_width=True)
-                with col_c:
-                    cancelar = st.form_submit_button("Cancelar", use_container_width=True)
+                    else:  # Alternativo
+                        nova_qtd   = st.number_input("Quantidade", min_value=0.00000001, format="%.8f",
+                                                     value=float(ativo_ed["quantidade"]))
+                        novo_preco = st.number_input("Preço Médio (R$)", min_value=0.01, format="%.2f",
+                                                     value=float(ativo_ed["preco_medio"]))
+
+                    col_s, col_c = st.columns(2)
+                    with col_s:
+                        salvar   = st.form_submit_button("Salvar alterações", use_container_width=True)
+                    with col_c:
+                        cancelar = st.form_submit_button("Cancelar", use_container_width=True)
+                    st.caption("As alterações são salvas localmente.")
 
             if salvar:
                 if classe_ed == "Ações":
