@@ -1,8 +1,6 @@
 import streamlit as st
 from supabase import Client, create_client
 
-USER_ID = "default_user"
-
 
 @st.cache_resource
 def get_supabase_client() -> Client:
@@ -11,10 +9,54 @@ def get_supabase_client() -> Client:
     return create_client(url, key)
 
 
-def carregar_dados() -> dict:
+def get_user_id() -> str | None:
+    user = st.session_state.get("user")
+    if user is not None:
+        return user.id
+    return None
+
+
+def is_authenticated() -> bool:
+    return get_user_id() is not None
+
+
+def login(email: str, password: str) -> dict:
     try:
         supabase = get_supabase_client()
-        result = supabase.table("carteiras").select("dados").eq("user_id", USER_ID).execute()
+        result = supabase.auth.sign_in_with_password({"email": email, "password": password})
+        st.session_state["user"]    = result.user
+        st.session_state["session"] = result.session
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def signup(email: str, password: str) -> dict:
+    try:
+        supabase = get_supabase_client()
+        result = supabase.auth.sign_up({"email": email, "password": password})
+        return {"success": True, "user": result.user}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def logout() -> None:
+    try:
+        supabase = get_supabase_client()
+        supabase.auth.sign_out()
+    except Exception:
+        pass
+    st.session_state.pop("user", None)
+    st.session_state.pop("session", None)
+
+
+def carregar_dados() -> dict:
+    user_id = get_user_id()
+    if not user_id:
+        return {}
+    try:
+        supabase = get_supabase_client()
+        result = supabase.table("carteiras").select("dados").eq("user_id", user_id).execute()
         if result.data:
             return result.data[0]["dados"]
         return {}
@@ -24,10 +66,13 @@ def carregar_dados() -> dict:
 
 
 def salvar_dados(dados: dict) -> bool:
+    user_id = get_user_id()
+    if not user_id:
+        return False
     try:
         supabase = get_supabase_client()
         supabase.table("carteiras").upsert({
-            "user_id": USER_ID,
+            "user_id": user_id,
             "dados": dados,
             "updated_at": "now()",
         }).execute()

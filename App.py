@@ -1,6 +1,8 @@
 import pandas as pd
 import streamlit as st
 
+from components.auth import render_login
+from utils.database import is_authenticated, logout
 from utils.market_data import get_contexto_macro
 from utils.market_data import get_preco_atual
 from utils.portfolio import (
@@ -18,12 +20,21 @@ st.set_page_config(
     layout="wide",
 )
 
+if not is_authenticated():
+    render_login()
+    st.stop()
+
 if "trocando_perfil" not in st.session_state:
     st.session_state.trocando_perfil = False
 
 with st.sidebar:
     st.title("📊 Carteira B3")
     st.caption("v0.1.0")
+    user = st.session_state.get("user")
+    st.caption(f"Logado como: {user.email if user else ''}")
+    if st.button("Sair", use_container_width=True):
+        logout()
+        st.rerun()
     if profile_exists():
         st.divider()
         st.subheader("Perfil do investidor")
