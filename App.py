@@ -22,10 +22,15 @@ with st.sidebar:
         st.subheader("Perfil do investidor")
         st.write(get_profile().capitalize())
         alocacao = get_alocacao_alvo()
+        NOMES_CLASSES = {
+            "acoes": "Ações", "fiis": "FIIs",
+            "renda_fixa": "Renda Fixa", "alternativos": "Alternativo",
+        }
         df = pd.DataFrame(
             {"Classe": list(alocacao.keys()), "%": list(alocacao.values())}
-        ).set_index("Classe")
-        st.table(df)
+        )
+        df["Classe"] = df["Classe"].map(NOMES_CLASSES)
+        st.table(df.set_index("Classe"))
         if st.button("Trocar perfil", use_container_width=True):
             st.session_state.trocando_perfil = True
             st.rerun()
@@ -112,7 +117,7 @@ else:
             atual = alocacao_atual.get(classe, 0.0)
             if abs(atual - alvo) > 5:
                 alertas.append(
-                    f"{classe}: {atual:.1f}% (alvo {alvo:.0f}%) — diferença de {atual - alvo:+.1f}%"
+                    f"{classe}: {atual:.1f}% (alvo {alvo:.0f}%), diferença de {atual - alvo:+.1f}%"
                 )
 
         try:

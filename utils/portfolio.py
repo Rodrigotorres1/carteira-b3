@@ -78,6 +78,17 @@ def add_ativo(
     _dump(data)
 
 
+def editar_ativo(ticker: str, dados: dict) -> bool:
+    """Atualiza campos de um ativo existente. Retorna True se encontrado."""
+    data = _load()
+    for ativo in data.get("ativos", []):
+        if ativo["ticker"] == ticker.upper():
+            ativo.update(dados)
+            _dump(data)
+            return True
+    return False
+
+
 def remove_ativo(ticker: str) -> None:
     data = _load()
     data["ativos"] = [a for a in data.get("ativos", []) if a["ticker"] != ticker.upper()]
