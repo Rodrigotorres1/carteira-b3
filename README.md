@@ -8,6 +8,16 @@
 
 ---
 
+## Demo
+
+🚀 **Acesse o app:** https://carteira-b3.streamlit.app
+
+> Dados resetam a cada reinicialização do servidor.
+> Para uso pessoal com dados persistentes,
+> rode localmente seguindo as instruções abaixo.
+
+---
+
 ## Sobre o Projeto
 
 Carteira B3 é uma aplicação Streamlit que centraliza a gestão de investimentos para investidores iniciantes brasileiros. O usuário cadastra sua carteira, define seu perfil de risco e recebe análises automáticas baseadas em dados reais de mercado.
