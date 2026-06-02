@@ -156,55 +156,61 @@ else:
 
     if acoes:
         st.subheader("Ações")
-        h1, h2, h3, h4 = st.columns([3, 2, 3, 1])
-        h1.markdown("**Ticker**"); h2.markdown("**Qtd.**")
-        h3.markdown("**Preço Médio**"); h4.write("")
-        for a in acoes:
-            c1, c2, c3, c4 = st.columns([3, 2, 3, 1])
-            c1.write(a["ticker"]); c2.write(str(a["quantidade"]))
-            c3.write(fmt_brl(a["preco_medio"]))
-            with c4: _btn_editar(a["ticker"])
+        for i, a in enumerate(acoes):
+            with st.container(border=True):
+                c1, c2, c3, c4 = st.columns([3, 2, 3, 1])
+                if i == 0:
+                    c1.caption("Ticker"); c2.caption("Quantidade")
+                    c3.caption("Preço Médio"); c4.write("")
+                c1.write(a["ticker"]); c2.write(str(a["quantidade"]))
+                c3.write(fmt_brl(a["preco_medio"]))
+                with c4: _btn_editar(a["ticker"])
 
     if fiis:
         st.subheader("FIIs")
-        h1, h2, h3, h4, h5 = st.columns([3, 2, 3, 1, 1])
-        h1.markdown("**Ticker**"); h2.markdown("**Qtd.**")
-        h3.markdown("**Preço Médio**"); h4.markdown("**P/VP**"); h5.write("")
-        for a in fiis:
-            c1, c2, c3, c4, c5 = st.columns([3, 2, 3, 1, 1])
-            c1.write(a["ticker"]); c2.write(str(a["quantidade"]))
-            c3.write(fmt_brl(a["preco_medio"]))
+        for i, a in enumerate(fiis):
             pvp_val = a.get("pvp")
-            c4.write(f"{pvp_val:.2f}" if pvp_val else "-")
-            with c5: _btn_editar(a["ticker"])
+            texto_pvp = f"{pvp_val:.2f}" if pvp_val is not None and float(pvp_val) > 0 else "—"
+            with st.container(border=True):
+                c1, c2, c3, c4, c5 = st.columns([4, 2, 3, 2, 1])
+                if i == 0:
+                    c1.caption("Ticker"); c2.caption("Quantidade")
+                    c3.caption("Preço Médio"); c4.caption("P/VP"); c5.write("")
+                c1.write(a["ticker"]); c2.write(str(a["quantidade"]))
+                c3.write(fmt_brl(a["preco_medio"]))
+                c4.write(texto_pvp)
+                with c5: _btn_editar(a["ticker"])
 
     if renda_fixa:
         st.subheader("Renda Fixa")
-        h1, h2, h3, h4, h5, h6 = st.columns([4, 2, 2, 2, 2, 1])
-        h1.markdown("**Ativo**"); h2.markdown("**Valor**")
-        h3.markdown("**Tipo**"); h4.markdown("**Taxa**")
-        h5.markdown("**Vencimento**"); h6.write("")
-        for a in renda_fixa:
-            c1, c2, c3, c4, c5, c6 = st.columns([4, 2, 2, 2, 2, 1])
-            c1.write(a["ticker"]); c2.write(fmt_brl(a["preco_medio"]))
-            c3.write(a.get("tipo_rentabilidade") or "-")
-            c4.write(f"{a['taxa']:.1f}%" if a.get("taxa") is not None else "-")
-            c5.write(a.get("vencimento") or "-")
-            with c6: _btn_editar(a["ticker"])
+        for i, a in enumerate(renda_fixa):
+            with st.container(border=True):
+                l1, l2 = st.columns([5, 1])
+                l1.write(a["ticker"])
+                with l2: _btn_editar(a["ticker"])
+                d1, d2, d3, d4 = st.columns(4)
+                if i == 0:
+                    d1.caption("Valor"); d2.caption("Tipo")
+                    d3.caption("Taxa"); d4.caption("Vencimento")
+                d1.write(fmt_brl(a["preco_medio"]))
+                d2.write(a.get("tipo_rentabilidade") or "—")
+                d3.write(f"{a['taxa']:.1f}%" if a.get("taxa") is not None else "—")
+                d4.write(a.get("vencimento") or "—")
 
     if alternativos:
         st.subheader("Alternativo")
-        h1, h2, h3, h4 = st.columns([3, 3, 3, 1])
-        h1.markdown("**Ticker**"); h2.markdown("**Quantidade**")
-        h3.markdown("**Preço Médio**"); h4.write("")
-        for a in alternativos:
+        for i, a in enumerate(alternativos):
             t = a["ticker"].upper()
             casas = 8 if ("BTC" in t or "ETH" in t) else 4
-            c1, c2, c3, c4 = st.columns([3, 3, 3, 1])
-            c1.write(a["ticker"])
-            c2.write(f"{a['quantidade']:.{casas}f}")
-            c3.write(fmt_brl(a["preco_medio"]))
-            with c4: _btn_editar(a["ticker"])
+            with st.container(border=True):
+                c1, c2, c3, c4 = st.columns([4, 3, 3, 1])
+                if i == 0:
+                    c1.caption("Ticker"); c2.caption("Quantidade")
+                    c3.caption("Preço Médio"); c4.write("")
+                c1.write(a["ticker"])
+                c2.write(f"{a['quantidade']:.{casas}f}")
+                c3.write(fmt_brl(a["preco_medio"]))
+                with c4: _btn_editar(a["ticker"])
 
     # ── Formulário de edição ──────────────────────────────────────────────────
     ticker_editando = st.session_state["editando"]
