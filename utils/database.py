@@ -65,6 +65,19 @@ def carregar_dados() -> dict:
         return {}
 
 
+def recuperar_sessao_url() -> bool:
+    try:
+        supabase = get_supabase_client()
+        session = supabase.auth.get_session()
+        if session and session.user:
+            st.session_state["user"]    = session.user
+            st.session_state["session"] = session
+            return True
+        return False
+    except Exception:
+        return False
+
+
 def salvar_dados(dados: dict) -> bool:
     user_id = get_user_id()
     if not user_id:
