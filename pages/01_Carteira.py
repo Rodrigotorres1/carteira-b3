@@ -3,7 +3,8 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
-from utils.portfolio import add_ativo, ativo_existe, editar_ativo, fmt_brl, get_ativos, remove_ativo
+from utils.market_data import get_preco_atual
+from utils.portfolio import add_ativo, ativo_existe, editar_ativo, fmt_brl, get_ativos, get_watchlist, remove_ativo, remove_watchlist
 
 # ── Mensagens de feedback ────────────────────────────────────────────────────
 if "msg_remocao" in st.session_state:
@@ -299,3 +300,88 @@ else:
         remove_ativo(ticker_remover)
         st.session_state["msg_remocao"] = f"{ticker_remover} removido da carteira."
         st.rerun()
+
+# ── Watchlist ─────────────────────────────────────────────────────────────────
+st.divider()
+st.header("Watchlist")
+
+watchlist = get_watchlist()
+
+if not watchlist:
+    st.info("Sua watchlist está vazia. Adicione ativos pelas Sugestões.")
+else:
+    alertas_wl = []
+
+    for item in watchlist:
+        ticker_wl     = item["ticker"]
+        classe_wl     = item["classe"]
+        preco_na_ad   = item.get("preco_na_adicao")
+        preco_ent_alvo = item.get("preco_entrada_alvo")
+        motivo_wl     = item.get("motivo", "")
+        data_adicao   = item.get("data_adicao", "—")
+
+        preco_atual_wl = get_preco_atual(ticker_wl, classe_wl)
+
+        var_wl = None
+        if preco_na_ad and preco_atual_wl:
+            var_wl = ((preco_atual_wl - preco_na_ad) / preco_na_ad) * 100
+
+        dist_wl = None
+        if preco_ent_alvo and preco_atual_wl:
+            dist_wl = ((preco_atual_wl - preco_ent_alvo) / preco_ent_alvo) * 100
+
+        with st.container(border=True):
+            c1, c2, c3, c4 = st.columns(4)
+
+            with c1:
+                st.markdown(f"**{ticker_wl}**")
+                st.caption(classe_wl)
+                st.caption(f"Adicionado: {data_adicao}")
+
+            with c2:
+                st.write(fmt_brl(preco_atual_wl) if preco_atual_wl else "—")
+                if preco_na_ad:
+                    st.caption(f"Na adição: {fmt_brl(preco_na_ad)}")
+
+            with c3:
+                if var_wl is not None:
+                    st.metric(
+                        "Variação",
+                        f"{var_wl:+.1f}%",
+                        delta=f"{var_wl:+.1f}%",
+                        delta_color="normal" if var_wl < 0 else "inverse",
+                    )
+                else:
+                    st.caption("Variação indisponível")
+
+            with c4:
+                if dist_wl is not None:
+                    if dist_wl <= 0:
+                        st.success("No preço alvo!")
+                    elif dist_wl <= 5:
+                        st.warning(f"A {dist_wl:.1f}% do alvo")
+                    else:
+                        st.info(f"{dist_wl:.1f}% acima do alvo")
+                else:
+                    st.caption("Sem alvo definido")
+
+            if motivo_wl:
+                st.caption(f"Motivo: {motivo_wl}")
+
+            col_rem, col_add = st.columns([1, 4])
+            with col_rem:
+                if st.button("Remover", key=f"rem_watch_{ticker_wl}"):
+                    remove_watchlist(ticker_wl)
+                    st.rerun()
+            with col_add:
+                st.caption("Para adicionar à carteira, use o formulário acima.")
+
+            if dist_wl is not None and dist_wl <= 2:
+                alertas_wl.append(f"{ticker_wl} atingiu o preço de entrada alvo!")
+            if var_wl is not None and var_wl <= -10:
+                alertas_wl.append(f"{ticker_wl} caiu {abs(var_wl):.1f}% desde que foi adicionado. Pode ser oportunidade.")
+
+    if alertas_wl:
+        st.subheader("Alertas da Watchlist")
+        for msg in alertas_wl:
+            st.warning(f"⚠️ {msg}")
