@@ -1,3 +1,6 @@
+from datetime import date, timedelta
+
+import pandas as pd
 import requests
 import yfinance as yf
 
@@ -451,3 +454,71 @@ def get_preco_entrada_saida(ticker: str, classe: str) -> dict:
         }
     except Exception:
         return fallback
+
+
+def get_dividendos_ativo(ticker: str, classe: str) -> pd.DataFrame:
+    """Retorna histórico de dividendos dos últimos 24 meses."""
+    vazio = pd.DataFrame(columns=["Dividendo"])
+    try:
+        symbol = ticker + ".SA" if classe in ("Ações", "FIIs") else ticker
+        divs = yf.Ticker(symbol).dividends
+        if divs is None or divs.empty:
+            return vazio
+        divs.index = divs.index.tz_localize(None)
+        corte = pd.Timestamp.today() - pd.DateOffset(months=24)
+        divs = divs[divs.index >= corte]
+        if divs.empty:
+            return vazio
+        df = divs.to_frame(name="Dividendo")
+        df.index.name = "Data"
+        return df
+    except Exception:
+        return vazio
+
+
+def get_proximo_dividendo(ticker: str, classe: str) -> dict | None:
+    """Estima o próximo dividendo com base no histórico recente."""
+    try:
+        symbol = ticker + ".SA" if classe in ("Ações", "FIIs") else ticker
+        divs = yf.Ticker(symbol).dividends
+        if divs is None or divs.empty:
+            return None
+        divs.index = divs.index.tz_localize(None)
+
+        ultimos = divs.sort_index().iloc[-12:]
+        if len(ultimos) < 2:
+            return None
+
+        media = float(ultimos.tail(6).mean())
+
+        datas = ultimos.index.tolist()
+        intervalos = [(datas[i] - datas[i - 1]).days for i in range(1, len(datas))]
+        intervalo_medio = sum(intervalos) / len(intervalos)
+
+        if intervalo_medio <= 45:
+            frequencia = "Mensal"
+            delta_dias = 30
+        elif intervalo_medio <= 110:
+            frequencia = "Trimestral"
+            delta_dias = 91
+        else:
+            frequencia = "Semestral"
+            delta_dias = 182
+
+        ultima_data = datas[-1].date() if hasattr(datas[-1], "date") else datas[-1]
+        proxima_data = ultima_data + timedelta(days=delta_dias)
+
+        corte_12m = pd.Timestamp.today() - pd.DateOffset(months=12)
+        soma_12m = float(divs[divs.index >= corte_12m].sum())
+
+        preco_atual = get_preco_atual(ticker, classe)
+        dy = (soma_12m / preco_atual * 100) if preco_atual and preco_atual > 0 else None
+
+        return {
+            "media_pagamento": media,
+            "frequencia": frequencia,
+            "proxima_data_estimada": proxima_data,
+            "dy_ultimos_12m": dy,
+        }
+    except Exception:
+        return None
