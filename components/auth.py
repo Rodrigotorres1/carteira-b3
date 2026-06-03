@@ -149,7 +149,13 @@ def render_login() -> None:
                             "o cadastro antes de entrar."
                         )
                     else:
-                        st.error(f"Erro ao criar conta: {result['error']}")
+                        erro = result["error"]
+                        if "rate limit" in erro.lower() or "429" in erro:
+                            st.error("Muitas tentativas de cadastro. Tente novamente em alguns minutos.")
+                        elif "already registered" in erro.lower():
+                            st.error("Este email já possui uma conta cadastrada.")
+                        else:
+                            st.error(f"Erro ao criar conta: {erro}")
 
     st.divider()
     st.caption("Seus dados são privados e isolados por usuário.")
