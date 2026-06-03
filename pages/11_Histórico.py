@@ -115,8 +115,8 @@ with tab_rent:
         data_fim_str   = df_r["data_dt"].iloc[-1].strftime("%d/%m/%Y")
 
         # ── Métricas estilo Rico ──────────────────────────────────────────────
-        seta   = "↑" if rendimento_pct >= 0 else "↓"
-        cor_pct = "#4CAF50" if rendimento_pct >= 0 else "#F44336"
+        seta    = "↑" if rendimento_pct >= 0 else "↓"
+        cor_pct = "#00C896" if rendimento_pct >= 0 else "#FF4B4B"
 
         bench_html = ""
         bench_pct_val = None
@@ -124,26 +124,26 @@ with tab_rent:
             datas_b, vals_b = _buscar_benchmark_pct(benchmark, df_r["data_dt"].iloc[0], indices)
             if vals_b is not None and len(vals_b) > 0:
                 bench_pct_val = float(vals_b[-1])
-                cor_b = "#4CAF50" if bench_pct_val >= 0 else "#F44336"
+                cor_bullet = _COR_BENCHMARK.get(benchmark, "#4A90D9")
                 bench_html = (
-                    f"&nbsp;&nbsp;<span style='color:#7EB8F7;font-size:1rem;'>●</span>"
-                    f"&nbsp;<span style='color:#AAAAAA;font-size:0.95rem;'>{benchmark}"
-                    f" <span style='color:{cor_b};'>{bench_pct_val:+.2f}%</span></span>"
+                    f"&nbsp;&nbsp;<span style='color:{cor_bullet};font-size:1rem;'>●</span>"
+                    f"&nbsp;<span style='color:rgba(255,255,255,0.75);font-size:16px;'>"
+                    f"{benchmark} {bench_pct_val:+.2f}%</span>"
                 )
 
         st.markdown(
             f"<div style='padding: 8px 0 4px 0;'>"
-            f"<span style='color:#FFFFFF;font-size:2rem;font-weight:700;'>"
+            f"<span style='color:#FFFFFF;font-size:28px;font-weight:700;'>"
             f"{fmt_brl(rendimento_rs)}</span>"
             f"&nbsp;&nbsp;"
-            f"<span style='color:{cor_pct};font-size:1.2rem;font-weight:600;'>"
+            f"<span style='color:{cor_pct};font-size:18px;font-weight:600;'>"
             f"{seta} {abs(rendimento_pct):.2f}%</span>"
             f"{bench_html}"
             f"</div>",
             unsafe_allow_html=True,
         )
 
-        # ── Gráfico estilo Rico ───────────────────────────────────────────────
+        # ── Gráfico ───────────────────────────────────────────────────────────
         df_r = df_r.copy()
         df_r["rent_pct"] = (df_r["valor"] / v0 - 1) * 100
 
@@ -152,47 +152,39 @@ with tab_rent:
             x=df_r["data_dt"], y=df_r["rent_pct"],
             showlegend=False,
             fill="tozeroy",
-            fillcolor="rgba(255, 255, 255, 0.10)",
-            line={"color": "#FFFFFF", "width": 2},
+            fillcolor="rgba(0, 168, 120, 0.25)",
+            line={"color": "#00A878", "width": 2, "smoothing": 1.3},
+            line_shape="spline",
             hovertemplate="%{y:.2f}%<extra></extra>",
         ))
 
         if benchmark != "Nenhum" and bench_pct_val is not None:
+            cor_bench = _COR_BENCHMARK.get(benchmark, "#4A90D9")
             fig.add_trace(go.Scatter(
                 x=datas_b, y=vals_b,
                 showlegend=False,
-                line={"color": "#7EB8F7", "dash": "dot", "width": 1.5},
+                line={"color": cor_bench, "dash": "dot", "width": 1.5, "smoothing": 1.3},
+                line_shape="spline",
                 hovertemplate=f"%{{y:.2f}}%<extra>{benchmark}</extra>",
             ))
 
         fig.update_layout(
             hovermode="x unified",
             showlegend=False,
-            plot_bgcolor="#0D1B3E",
+            plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
-            margin={"t": 10, "b": 10, "l": 10, "r": 10},
-            xaxis={
-                "showgrid": False,
-                "zeroline": False,
-                "tickfont": {"color": "rgba(255,255,255,0.4)"},
-                "linecolor": "rgba(255,255,255,0.1)",
-            },
-            yaxis={
-                "showgrid": False,
-                "zeroline": False,
-                "tickformat": ".1f",
-                "ticksuffix": "%",
-                "tickfont": {"color": "rgba(255,255,255,0.4)"},
-                "linecolor": "rgba(255,255,255,0.1)",
-            },
+            margin={"l": 40, "r": 20, "t": 10, "b": 40},
+            xaxis={"showgrid": False, "zeroline": False},
+            yaxis={"showgrid": False, "zeroline": False,
+                   "tickformat": ".1f", "ticksuffix": "%"},
         )
         st.plotly_chart(fig, use_container_width=True)
 
         # ── Detalhes da rentabilidade ─────────────────────────────────────────
-        st.markdown("### Detalhes da rentabilidade")
+        st.markdown("#### Detalhes da rentabilidade")
         st.divider()
 
-        cor_rend = "#4CAF50" if rendimento_rs >= 0 else "#F44336"
+        cor_rend = "#00C896" if rendimento_rs >= 0 else "#FF4B4B"
         seta_rend = "↑" if rendimento_rs >= 0 else "↓"
 
         col_a, col_b = st.columns([3, 1])
