@@ -1,14 +1,19 @@
+from datetime import datetime
+
 import pandas as pd
 import streamlit as st
 
 from components.auth import render_login
 from utils.database import is_authenticated, logout
+from utils.pdf_generator import gerar_pdf_carteira
 from utils.market_data import get_contexto_macro
 from utils.market_data import get_preco_atual
 from utils.portfolio import (
     calcular_alocacao_atual,
+    calcular_carteira,
     calcular_renda_fixa,
     get_ativos,
+    get_historico_patrimonio,
     get_watchlist,
     salvar_snapshot_patrimonio,
 )
@@ -206,3 +211,26 @@ else:
 
     st.divider()
     st.caption("Navegue pelo menu lateral para acessar cada painel. Dados atualizados em tempo real.")
+
+    ativos_pdf = calcular_carteira()
+    if ativos_pdf:
+        st.divider()
+        col_pdf, _ = st.columns([1, 3])
+        with col_pdf:
+            if st.button("Exportar relatório PDF", use_container_width=True):
+                with st.spinner("Gerando PDF..."):
+                    pdf_bytes = gerar_pdf_carteira(
+                        ativos=ativos_pdf,
+                        alocacao_atual=alocacao_atual,
+                        alocacao_alvo=alocacao_alvo,
+                        perfil=get_profile(),
+                        historico=get_historico_patrimonio(),
+                        user_email=st.session_state.get("user").email,
+                    )
+                st.download_button(
+                    label="Baixar PDF",
+                    data=pdf_bytes,
+                    file_name=f"carteira_b3_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
