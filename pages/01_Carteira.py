@@ -278,32 +278,25 @@ else:
                     st.rerun()
 
     def _cabecalho_ativo(ticker: str, classe: str, preco_medio: float, quantidade: float) -> None:
-        """Exibe cabeçalho estilo Google Finanças com métricas calculadas em tempo real."""
-        pa = get_preco_atual(ticker, classe) or preco_medio
-        qtd = quantidade
-        ganho_rs  = (pa - preco_medio) * qtd
+        """Exibe métricas do ativo estilo Google Finanças."""
+        pa        = get_preco_atual(ticker, classe) or preco_medio
+        ganho_rs  = (pa - preco_medio) * quantidade
         ganho_pct = (pa / preco_medio - 1) * 100 if preco_medio > 0 else 0.0
-        valor_tot = pa * qtd
-        cor = "#00C896" if ganho_rs >= 0 else "#FF4B4B"
+        valor_tot = pa * quantidade
 
         m1, m2, m3, m4, m5 = st.columns(5)
-        m1.metric("Preço atual",      fmt_brl(pa))
-        m2.metric("Quantidade",       str(qtd))
-        m3.metric("Ganho (R$)",       fmt_brl(ganho_rs),
-                  delta=fmt_brl(ganho_rs),
-                  delta_color="normal" if ganho_rs >= 0 else "inverse")
-        m4.metric("Ganho (%)",        f"{ganho_pct:+.2f}%",
-                  delta=f"{ganho_pct:+.2f}%",
-                  delta_color="normal" if ganho_pct >= 0 else "inverse")
-        m5.metric("Valor total",      fmt_brl(valor_tot))
-        st.caption(f"PM: {fmt_brl(preco_medio)}")
+        m1.metric("Preço atual",  fmt_brl(pa))
+        m2.metric("Quantidade",   str(quantidade))
+        m3.metric("Ganho (R$)",   fmt_brl(ganho_rs),  delta=fmt_brl(ganho_rs),  delta_color="off")
+        m4.metric("Ganho (%)",    f"{ganho_pct:+.2f}%", delta=f"{ganho_pct:+.2f}%", delta_color="off")
+        m5.metric("Valor total",  fmt_brl(valor_tot))
 
     if acoes:
         st.subheader("Ações")
         for a in acoes:
             with st.expander(a["ticker"], expanded=False):
-                h1, h2 = st.columns([8, 1])
-                h1.markdown(f"**{a['ticker']}**")
+                h1, h2 = st.columns([9, 1])
+                h1.caption(f"PM: {fmt_brl(float(a['preco_medio']))}")
                 with h2:
                     _btn_remover(a["ticker"])
                 _cabecalho_ativo(a["ticker"], "Ações", float(a["preco_medio"]), float(a["quantidade"]))
@@ -313,8 +306,8 @@ else:
         st.subheader("FIIs")
         for a in fiis:
             with st.expander(a["ticker"], expanded=False):
-                h1, h2 = st.columns([8, 1])
-                h1.markdown(f"**{a['ticker']}**")
+                h1, h2 = st.columns([9, 1])
+                h1.caption(f"PM: {fmt_brl(float(a['preco_medio']))}")
                 with h2:
                     _btn_remover(a["ticker"])
                 _cabecalho_ativo(a["ticker"], "FIIs", float(a["preco_medio"]), float(a["quantidade"]))
@@ -322,12 +315,27 @@ else:
 
     if renda_fixa:
         st.subheader("Renda Fixa")
+        st.markdown("""
+        <style>
+        [data-testid="stHorizontalBlock"]:has(button[title="Excluir"]) button[title="Excluir"] {
+            background: none !important;
+            border: none !important;
+            color: #888 !important;
+            font-size: 18px !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
         for a in renda_fixa:
             with st.container(border=True):
-                h1, h2 = st.columns([8, 1])
+                h1, h2 = st.columns([9, 1])
                 h1.markdown(f"**{a['ticker']}**")
                 with h2:
-                    _btn_remover(a["ticker"])
+                    if st.button("🗑️", key=f"del_rf_{a['ticker']}", help="Excluir"):
+                        remove_ativo(a["ticker"])
+                        st.session_state["msg_remocao"] = f"{a['ticker']} removido."
+                        st.rerun()
                 d1, d2, d3, d4 = st.columns(4)
                 d1.caption("Valor");      d1.write(fmt_brl(a["preco_medio"]))
                 d2.caption("Tipo");       d2.write(a.get("tipo_rentabilidade") or "—")
@@ -338,8 +346,8 @@ else:
         st.subheader("Alternativo")
         for a in alternativos:
             with st.expander(a["ticker"], expanded=False):
-                h1, h2 = st.columns([8, 1])
-                h1.markdown(f"**{a['ticker']}**")
+                h1, h2 = st.columns([9, 1])
+                h1.caption(f"PM: {fmt_brl(float(a['preco_medio']))}")
                 with h2:
                     _btn_remover(a["ticker"])
                 _cabecalho_ativo(a["ticker"], "Alternativo",
