@@ -303,11 +303,20 @@ else:
         ganho_pct = (pa / preco_medio - 1) * 100 if preco_medio > 0 else 0.0
         valor_tot = pa * quantidade
 
+        cor  = "#00C896" if ganho_rs >= 0 else "#FF4B4B"
+        seta = "↑" if ganho_rs >= 0 else "↓"
+
         m1, m2, m3, m4, m5 = st.columns(5)
         m1.metric("Preço atual",  fmt_brl(pa))
         m2.metric("Quantidade",   str(quantidade))
-        m3.metric("Ganho (R$)",   fmt_brl(ganho_rs))
-        m4.metric("Ganho (%)",    f"{ganho_pct:+.2f}%")
+        m3.markdown(f"""
+            <div style='font-size:13px; color:#888; margin-bottom:4px'>Ganho (R$)</div>
+            <div style='font-size:24px; font-weight:700; color:{cor}'>{seta} {fmt_brl(abs(ganho_rs))}</div>
+        """, unsafe_allow_html=True)
+        m4.markdown(f"""
+            <div style='font-size:13px; color:#888; margin-bottom:4px'>Ganho (%)</div>
+            <div style='font-size:24px; font-weight:700; color:{cor}'>{seta} {abs(ganho_pct):.2f}%</div>
+        """, unsafe_allow_html=True)
         m5.metric("Valor total",  fmt_brl(valor_tot))
 
     def _menu_excluir(ticker: str, classe: str) -> None:
