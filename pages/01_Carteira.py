@@ -173,6 +173,25 @@ if submitted:
             )
             st.success(f"{nome} adicionado com sucesso.")
 
+# ── CSS hover para lixeiras de compra ────────────────────────────────────────
+st.markdown("""
+<style>
+div[data-testid="stHorizontalBlock"] button[data-testid="baseButton-secondary"] {
+    opacity: 0;
+    transition: opacity 0.15s;
+    background: none !important;
+    border: none !important;
+    color: #888 !important;
+    padding: 0 4px !important;
+    min-height: 0 !important;
+    box-shadow: none !important;
+}
+div[data-testid="stHorizontalBlock"]:hover button[data-testid="baseButton-secondary"] {
+    opacity: 1 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # ── Ativos Cadastrados ────────────────────────────────────────────────────────
 st.header("Ativos Cadastrados")
 ativos = get_ativos()
@@ -242,7 +261,7 @@ else:
                 )
                 r5.write(fmt_brl(v_at))
                 with r6:
-                    if st.button("🗑", key=f"del_compra_{c['id']}", help="Remover"):
+                    if st.button("🗑", key=f"del_compra_{c['id']}", help="Remover", type="secondary"):
                         deletar_compra(str(c["id"]))
                         _recalcular_ativo_por_compras(ticker, classe)
                         st.rerun()
@@ -291,60 +310,69 @@ else:
         m4.metric("Ganho (%)",    f"{ganho_pct:+.2f}%")
         m5.metric("Valor total",  fmt_brl(valor_tot))
 
+    def _menu_excluir(ticker: str, classe: str) -> None:
+        """Popover ⋮ com opção de excluir o ativo e todas as suas compras."""
+        with st.popover("⋮"):
+            if st.button("🗑️ Excluir ativo", key=f"excluir_{ticker}",
+                         type="primary", use_container_width=True):
+                for c in get_compras(ticker):
+                    deletar_compra(str(c["id"]))
+                remove_ativo(ticker)
+                st.session_state["msg_remocao"] = f"{ticker} removido da carteira."
+                st.rerun()
+
     if acoes:
         st.subheader("Ações")
         for a in acoes:
-            col_exp, col_del = st.columns([10, 1])
-            with col_del:
-                _btn_remover(a["ticker"])
-            with col_exp:
-                with st.expander(a["ticker"], expanded=False):
-                    st.caption(f"PM: {fmt_brl(float(a['preco_medio']))}")
-                    _cabecalho_ativo(a["ticker"], "Ações", float(a["preco_medio"]), float(a["quantidade"]))
-                    _secao_compras(a["ticker"], "Ações")
+            with st.expander(a["ticker"], expanded=False):
+                h1, h2 = st.columns([9, 1])
+                h1.caption(f"PM: {fmt_brl(float(a['preco_medio']))}")
+                with h2:
+                    _menu_excluir(a["ticker"], "Ações")
+                _cabecalho_ativo(a["ticker"], "Ações", float(a["preco_medio"]), float(a["quantidade"]))
+                _secao_compras(a["ticker"], "Ações")
 
     if fiis:
         st.subheader("FIIs")
         for a in fiis:
-            col_exp, col_del = st.columns([10, 1])
-            with col_del:
-                _btn_remover(a["ticker"])
-            with col_exp:
-                with st.expander(a["ticker"], expanded=False):
-                    st.caption(f"PM: {fmt_brl(float(a['preco_medio']))}")
-                    _cabecalho_ativo(a["ticker"], "FIIs", float(a["preco_medio"]), float(a["quantidade"]))
-                    _secao_compras(a["ticker"], "FIIs")
+            with st.expander(a["ticker"], expanded=False):
+                h1, h2 = st.columns([9, 1])
+                h1.caption(f"PM: {fmt_brl(float(a['preco_medio']))}")
+                with h2:
+                    _menu_excluir(a["ticker"], "FIIs")
+                _cabecalho_ativo(a["ticker"], "FIIs", float(a["preco_medio"]), float(a["quantidade"]))
+                _secao_compras(a["ticker"], "FIIs")
 
     if renda_fixa:
         st.subheader("Renda Fixa")
-        for i, a in enumerate(renda_fixa):
-            col_card, col_del = st.columns([10, 1])
-            with col_del:
-                if st.button("🗑️", key=f"del_rf_{i}", help="Excluir"):
-                    remove_ativo(a["ticker"])
-                    st.session_state["msg_remocao"] = f"{a['ticker']} removido."
-                    st.rerun()
-            with col_card:
-                with st.container(border=True):
-                    st.markdown(f"**{a['ticker']}**")
-                    d1, d2, d3, d4 = st.columns(4)
-                    d1.caption("Valor");      d1.write(fmt_brl(a["preco_medio"]))
-                    d2.caption("Tipo");       d2.write(a.get("tipo_rentabilidade") or "—")
-                    d3.caption("Taxa");       d3.write(f"{a['taxa']:.1f}%" if a.get("taxa") is not None else "—")
-                    d4.caption("Vencimento"); d4.write(a.get("vencimento") or "—")
+        for a in renda_fixa:
+            with st.container(border=True):
+                h1, h2 = st.columns([9, 1])
+                h1.markdown(f"**{a['ticker']}**")
+                with h2:
+                    with st.popover("⋮"):
+                        if st.button("🗑️ Excluir", key=f"excluir_rf_{a['ticker']}",
+                                     type="primary", use_container_width=True):
+                            remove_ativo(a["ticker"])
+                            st.session_state["msg_remocao"] = f"{a['ticker']} removido."
+                            st.rerun()
+                d1, d2, d3, d4 = st.columns(4)
+                d1.caption("Valor");      d1.write(fmt_brl(a["preco_medio"]))
+                d2.caption("Tipo");       d2.write(a.get("tipo_rentabilidade") or "—")
+                d3.caption("Taxa");       d3.write(f"{a['taxa']:.1f}%" if a.get("taxa") is not None else "—")
+                d4.caption("Vencimento"); d4.write(a.get("vencimento") or "—")
 
     if alternativos:
         st.subheader("Alternativo")
         for a in alternativos:
-            col_exp, col_del = st.columns([10, 1])
-            with col_del:
-                _btn_remover(a["ticker"])
-            with col_exp:
-                with st.expander(a["ticker"], expanded=False):
-                    st.caption(f"PM: {fmt_brl(float(a['preco_medio']))}")
-                    _cabecalho_ativo(a["ticker"], "Alternativo",
-                                     float(a["preco_medio"]), float(a["quantidade"]))
-                    _secao_compras(a["ticker"], "Alternativo")
+            with st.expander(a["ticker"], expanded=False):
+                h1, h2 = st.columns([9, 1])
+                h1.caption(f"PM: {fmt_brl(float(a['preco_medio']))}")
+                with h2:
+                    _menu_excluir(a["ticker"], "Alternativo")
+                _cabecalho_ativo(a["ticker"], "Alternativo",
+                                 float(a["preco_medio"]), float(a["quantidade"]))
+                _secao_compras(a["ticker"], "Alternativo")
 
     # ── Watchlist ─────────────────────────────────────────────────────────────
 
