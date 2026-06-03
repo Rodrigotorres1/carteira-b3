@@ -114,55 +114,100 @@ with tab_rent:
         data_ini_str   = df_r["data_dt"].iloc[0].strftime("%d/%m/%Y")
         data_fim_str   = df_r["data_dt"].iloc[-1].strftime("%d/%m/%Y")
 
-        m1, m2, m3 = st.columns(3)
-        m1.metric(
-            "Rendimento (R$)", fmt_brl(rendimento_rs),
-            delta=fmt_brl(rendimento_rs),
-            delta_color="normal" if rendimento_rs >= 0 else "inverse",
-        )
-        m2.metric(
-            "Rendimento (%)", f"{rendimento_pct:+.2f}%",
-            delta=f"{rendimento_pct:+.2f}%",
-            delta_color="normal" if rendimento_pct >= 0 else "inverse",
-        )
-        m3.metric("Período", f"{data_ini_str} → {data_fim_str}")
+        # ── Métricas estilo Rico ──────────────────────────────────────────────
+        seta   = "↑" if rendimento_pct >= 0 else "↓"
+        cor_pct = "#4CAF50" if rendimento_pct >= 0 else "#F44336"
 
-        # Calcula % da carteira relativa ao primeiro ponto do período filtrado
+        bench_html = ""
+        bench_pct_val = None
+        if benchmark != "Nenhum":
+            datas_b, vals_b = _buscar_benchmark_pct(benchmark, df_r["data_dt"].iloc[0], indices)
+            if vals_b is not None and len(vals_b) > 0:
+                bench_pct_val = float(vals_b[-1])
+                cor_b = "#4CAF50" if bench_pct_val >= 0 else "#F44336"
+                bench_html = (
+                    f"&nbsp;&nbsp;<span style='color:#7EB8F7;font-size:1rem;'>●</span>"
+                    f"&nbsp;<span style='color:#AAAAAA;font-size:0.95rem;'>{benchmark}"
+                    f" <span style='color:{cor_b};'>{bench_pct_val:+.2f}%</span></span>"
+                )
+
+        st.markdown(
+            f"<div style='padding: 8px 0 4px 0;'>"
+            f"<span style='color:#FFFFFF;font-size:2rem;font-weight:700;'>"
+            f"{fmt_brl(rendimento_rs)}</span>"
+            f"&nbsp;&nbsp;"
+            f"<span style='color:{cor_pct};font-size:1.2rem;font-weight:600;'>"
+            f"{seta} {abs(rendimento_pct):.2f}%</span>"
+            f"{bench_html}"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+
+        # ── Gráfico estilo Rico ───────────────────────────────────────────────
         df_r = df_r.copy()
         df_r["rent_pct"] = (df_r["valor"] / v0 - 1) * 100
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(
             x=df_r["data_dt"], y=df_r["rent_pct"],
-            name="Minha Carteira",
+            showlegend=False,
             fill="tozeroy",
-            fillcolor="rgba(0, 168, 120, 0.2)",
-            line={"color": "#00A878", "width": 2},
-            hovertemplate="%{y:.2f}%<extra>Carteira</extra>",
+            fillcolor="rgba(255, 255, 255, 0.10)",
+            line={"color": "#FFFFFF", "width": 2},
+            hovertemplate="%{y:.2f}%<extra></extra>",
         ))
 
-        if benchmark != "Nenhum":
-            datas_b, vals_b = _buscar_benchmark_pct(benchmark, df_r["data_dt"].iloc[0], indices)
-            if datas_b is not None:
-                fig.add_trace(go.Scatter(
-                    x=datas_b, y=vals_b,
-                    name=benchmark,
-                    line={"color": _COR_BENCHMARK[benchmark], "dash": "dash", "width": 1.5},
-                    hovertemplate=f"%{{y:.2f}}%<extra>{benchmark}</extra>",
-                ))
+        if benchmark != "Nenhum" and bench_pct_val is not None:
+            fig.add_trace(go.Scatter(
+                x=datas_b, y=vals_b,
+                showlegend=False,
+                line={"color": "#7EB8F7", "dash": "dot", "width": 1.5},
+                hovertemplate=f"%{{y:.2f}}%<extra>{benchmark}</extra>",
+            ))
 
         fig.update_layout(
-            yaxis_title="Rentabilidade (%)",
-            xaxis_title="",
             hovermode="x unified",
-            showlegend=True,
-            plot_bgcolor="rgba(0,0,0,0)",
+            showlegend=False,
+            plot_bgcolor="#0D1B3E",
             paper_bgcolor="rgba(0,0,0,0)",
-            yaxis={"tickformat": ".1f", "ticksuffix": "%", "zeroline": True,
-                   "zerolinecolor": "#444", "zerolinewidth": 1},
-            legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "left", "x": 0},
+            margin={"t": 10, "b": 10, "l": 10, "r": 10},
+            xaxis={
+                "showgrid": False,
+                "zeroline": False,
+                "tickfont": {"color": "rgba(255,255,255,0.4)"},
+                "linecolor": "rgba(255,255,255,0.1)",
+            },
+            yaxis={
+                "showgrid": False,
+                "zeroline": False,
+                "tickformat": ".1f",
+                "ticksuffix": "%",
+                "tickfont": {"color": "rgba(255,255,255,0.4)"},
+                "linecolor": "rgba(255,255,255,0.1)",
+            },
         )
         st.plotly_chart(fig, use_container_width=True)
+
+        # ── Detalhes da rentabilidade ─────────────────────────────────────────
+        st.markdown("### Detalhes da rentabilidade")
+        st.divider()
+
+        cor_rend = "#4CAF50" if rendimento_rs >= 0 else "#F44336"
+        seta_rend = "↑" if rendimento_rs >= 0 else "↓"
+
+        col_a, col_b = st.columns([3, 1])
+        col_a.write("Rendimento")
+        col_b.markdown(
+            f"<span style='color:{cor_rend};font-weight:600;'>"
+            f"{seta_rend} {fmt_brl(abs(rendimento_rs))}</span>",
+            unsafe_allow_html=True,
+        )
+        st.divider()
+
+        col_c, col_d = st.columns([3, 1])
+        col_c.write("Data de referência")
+        col_d.write(f"De {data_ini_str} Até {data_fim_str}")
+        st.divider()
 
         st.caption(
             "⚠️ Possíveis imprecisões: dias sem acesso ao app são preenchidos com dados históricos do yfinance "
