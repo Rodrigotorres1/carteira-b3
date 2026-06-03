@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from utils.database import carregar_dados, salvar_dados
 from utils.market_data import (
@@ -542,22 +542,118 @@ def calcular_alocacao_atual() -> dict[str, float]:
 
 
 def salvar_snapshot_patrimonio() -> None:
-    """Salva ou atualiza o valor total da carteira no histórico de hoje."""
+    """Calcula e salva o patrimônio por data, preenchendo até 30 dias atrás."""
     try:
-        carteira = calcular_carteira()
-        if not carteira:
+        import yfinance as yf
+        from utils.market_data import get_cotacao_dolar, get_indices_renda_fixa
+
+        dados   = _load()
+        ativos  = dados.get("ativos", [])
+        if not ativos:
             return
-        valor_total = sum(a["valor_atual"] for a in carteira)
-        hoje = date.today().strftime("%d/%m/%Y")
-        data = _load()
-        historico = data.setdefault("historico_patrimonio", [])
-        for entrada in historico:
-            if entrada["data"] == hoje:
-                entrada["valor"] = round(valor_total, 2)
-                _dump(data)
-                return
-        historico.append({"data": hoje, "valor": round(valor_total, 2)})
-        _dump(data)
+
+        historico       = dados.get("historico_patrimonio", [])
+        datas_existentes = {h["data"] for h in historico}
+        hoje            = date.today()
+
+        datas_faltantes: list[date] = []
+        for i in range(30, 0, -1):
+            d = hoje - timedelta(days=i)
+            if d.weekday() >= 5:
+                continue
+            if d.strftime("%d/%m/%Y") not in datas_existentes:
+                datas_faltantes.append(d)
+        if hoje.strftime("%d/%m/%Y") not in datas_existentes:
+            datas_faltantes.append(hoje)
+
+        if not datas_faltantes:
+            return
+
+        indices    = get_indices_renda_fixa()
+        cdi_diario = (1 + indices["cdi"] / 100) ** (1 / 252) - 1
+        dolar      = get_cotacao_dolar()
+
+        for data_alvo in datas_faltantes:
+            data_str  = data_alvo.strftime("%Y-%m-%d")
+            data_prox = (data_alvo + timedelta(days=1)).strftime("%Y-%m-%d")
+            valor_total = 0.0
+            custo_total = 0.0
+
+            for ativo in ativos:
+                classe      = ativo.get("classe", "")
+                ticker      = ativo.get("ticker", "")
+                quantidade  = float(ativo.get("quantidade", 0))
+                preco_medio = float(ativo.get("preco_medio", 0))
+                custo_total += quantidade * preco_medio
+
+                if classe in ("Ações", "FIIs"):
+                    try:
+                        hist = yf.Ticker(ticker + ".SA").history(
+                            start=data_str, end=data_prox)
+                        preco = float(hist["Close"].iloc[-1]) if not hist.empty else preco_medio
+                    except Exception:
+                        preco = preco_medio
+                    valor_total += quantidade * preco
+
+                elif classe == "Alternativo":
+                    try:
+                        t = ticker if any(s in ticker for s in ("-USD", "=F")) else ticker + ".SA"
+                        hist = yf.Ticker(t).history(start=data_str, end=data_prox)
+                        if not hist.empty:
+                            preco_raw = float(hist["Close"].iloc[-1])
+                            preco = preco_raw * dolar if ("-USD" in ticker or "=F" in ticker) else preco_raw
+                        else:
+                            preco = preco_medio
+                    except Exception:
+                        preco = preco_medio
+                    valor_total += quantidade * preco
+
+                elif classe == "Renda Fixa":
+                    tipo            = ativo.get("tipo_rentabilidade", "")
+                    taxa            = float(ativo.get("taxa") or 0)
+                    data_aplicacao  = ativo.get("data_aplicacao")
+                    valor_investido = preco_medio
+                    try:
+                        if data_aplicacao:
+                            dt_aplic     = datetime.strptime(data_aplicacao, "%d/%m/%Y").date()
+                            dias_corridos = (data_alvo - dt_aplic).days
+                            if tipo == "Prefixado":
+                                td = (1 + taxa / 100) ** (1 / 365) - 1
+                            elif tipo == "% do CDI":
+                                td = cdi_diario * (taxa / 100)
+                            elif tipo == "CDI+":
+                                td = cdi_diario + (1 + taxa / 100) ** (1 / 365) - 1
+                            elif tipo == "IPCA+":
+                                ipca_diario = (1 + indices.get("ipca", 0.5) / 100) ** (1 / 365) - 1
+                                td = ipca_diario + (1 + taxa / 100) ** (1 / 365) - 1
+                            else:
+                                td = cdi_diario
+                            valor_atual = valor_investido * (1 + td) ** max(dias_corridos, 0)
+                        else:
+                            valor_atual = valor_investido
+                    except Exception:
+                        valor_atual = valor_investido
+                    valor_total += valor_atual
+
+            rendimento_pct = ((valor_total - custo_total) / custo_total * 100) if custo_total > 0 else 0.0
+            historico.append({
+                "data":           data_alvo.strftime("%d/%m/%Y"),
+                "valor":          round(valor_total, 2),
+                "custo_total":    round(custo_total, 2),
+                "rendimento_pct": round(rendimento_pct, 2),
+                "num_ativos":     len(ativos),
+            })
+
+        vistos: set[str] = set()
+        historico_limpo = []
+        for h in historico:
+            if h["data"] not in vistos:
+                vistos.add(h["data"])
+                historico_limpo.append(h)
+
+        historico_limpo.sort(key=lambda x: datetime.strptime(x["data"], "%d/%m/%Y"))
+        dados["historico_patrimonio"] = historico_limpo
+        _dump(dados)
     except Exception:
         pass
 
