@@ -185,9 +185,13 @@ else:
     renda_fixa   = [a for a in ativos if a["classe"] == "Renda Fixa"]
     alternativos = [a for a in ativos if a["classe"] == "Alternativo"]
 
-    def _btn_editar(ticker: str) -> None:
-        if st.button("Editar", key=f"edit_{ticker}", use_container_width=True):
-            st.session_state["editando"] = ticker
+    def _btn_remover(ticker: str) -> None:
+        """Lixeira inline: remove ativo e todas as suas compras."""
+        if st.button("🗑️", key=f"del_ativo_{ticker}", help=f"Remover {ticker}"):
+            for c in get_compras(ticker):
+                deletar_compra(str(c["id"]))
+            remove_ativo(ticker)
+            st.session_state["msg_remocao"] = f"{ticker} removido da carteira."
             st.rerun()
 
     def _recalcular_ativo_por_compras(ticker: str, classe: str, pvp: float | None = None) -> None:
@@ -315,7 +319,7 @@ else:
             with st.container(border=True):
                 l1, l2 = st.columns([5, 1])
                 l1.write(a["ticker"])
-                with l2: _btn_editar(a["ticker"])
+                with l2: _btn_remover(a["ticker"])
                 d1, d2, d3, d4 = st.columns(4)
                 if i == 0:
                     d1.caption("Valor"); d2.caption("Tipo")
@@ -327,106 +331,13 @@ else:
 
     if alternativos:
         st.subheader("Alternativo")
-        for i, a in enumerate(alternativos):
-            t = a["ticker"].upper()
-            casas = 8 if ("BTC" in t or "ETH" in t) else 4
-            with st.container(border=True):
-                c1, c2, c3, c4 = st.columns([4, 3, 3, 1])
-                if i == 0:
-                    c1.caption("Ticker"); c2.caption("Quantidade")
-                    c3.caption("Preço Médio"); c4.write("")
-                c1.write(a["ticker"])
-                c2.write(f"{a['quantidade']:.{casas}f}")
-                c3.write(fmt_brl(a["preco_medio"]))
-                with c4: _btn_editar(a["ticker"])
+        for a in alternativos:
+            with st.expander(a["ticker"], expanded=False):
+                _cabecalho_ativo(a["ticker"], "Alternativo",
+                                 float(a["preco_medio"]), float(a["quantidade"]))
+                _secao_compras(a["ticker"], "Alternativo")
 
-    # ── Formulário de edição ──────────────────────────────────────────────────
-    ticker_editando = st.session_state["editando"]
-    if ticker_editando:
-        ativo_ed = next((a for a in ativos if a["ticker"] == ticker_editando), None)
-        if ativo_ed:
-            st.divider()
-            classe_ed = ativo_ed["classe"]
-
-            def _parse_data_str(s: str | None) -> date:
-                try:
-                    d, m, y = (s or "").split("/")
-                    return date(int(y), int(m), int(d))
-                except Exception:
-                    return date.today()
-
-            with st.container(border=True):
-                st.subheader(f"Editando: {ticker_editando}")
-                st.caption(f"Classe: {classe_ed} | Ticker: {ticker_editando}")
-                st.divider()
-
-                with st.form(f"form_edicao_{ticker_editando}"):
-                    if classe_ed == "Ações":
-                        nova_qtd   = st.number_input("Quantidade", min_value=1, step=1, value=int(ativo_ed["quantidade"]))
-                        novo_preco = st.number_input("Preço Médio (R$)", min_value=0.01, format="%.2f", value=float(ativo_ed["preco_medio"]))
-
-                    elif classe_ed == "FIIs":
-                        nova_qtd   = st.number_input("Quantidade", min_value=1, step=1, value=int(ativo_ed["quantidade"]))
-                        novo_preco = st.number_input("Preço Médio (R$)", min_value=0.01, format="%.2f", value=float(ativo_ed["preco_medio"]))
-                        novo_pvp   = st.number_input("P/VP atual", min_value=0.01, max_value=5.0, step=0.01, format="%.2f",
-                                                     value=float(ativo_ed.get("pvp") or 1.0))
-
-                    elif classe_ed == "Renda Fixa":
-                        novo_nome  = st.text_input("Nome do ativo", value=ativo_ed["ticker"])
-                        novo_valor = st.number_input("Valor Investido (R$)", min_value=0.01, format="%.2f", value=float(ativo_ed["preco_medio"]))
-                        _tipos     = ["Prefixado", "CDI+", "% do CDI", "IPCA+"]
-                        _tipo_at   = ativo_ed.get("tipo_rentabilidade", "Prefixado")
-                        novo_tipo  = st.selectbox("Tipo de Rentabilidade", _tipos,
-                                                  index=_tipos.index(_tipo_at) if _tipo_at in _tipos else 0)
-                        nova_taxa  = st.number_input("Taxa (% a.a.)", min_value=0.01, format="%.2f",
-                                                     value=float(ativo_ed.get("taxa") or 10.0))
-                        nova_aplic = st.date_input("Data de Aplicação", value=_parse_data_str(ativo_ed.get("data_aplicacao")))
-                        novo_venc  = st.date_input("Data de Vencimento",  value=_parse_data_str(ativo_ed.get("vencimento")))
-
-                    else:  # Alternativo
-                        nova_qtd   = st.number_input("Quantidade", min_value=0.00000001, format="%.8f",
-                                                     value=float(ativo_ed["quantidade"]))
-                        novo_preco = st.number_input("Preço Médio (R$)", min_value=0.01, format="%.2f",
-                                                     value=float(ativo_ed["preco_medio"]))
-
-                    col_s, col_c = st.columns(2)
-                    with col_s:
-                        salvar   = st.form_submit_button("Salvar alterações", use_container_width=True)
-                    with col_c:
-                        cancelar = st.form_submit_button("Cancelar", use_container_width=True)
-                    st.caption("As alterações são salvas localmente.")
-
-            if salvar:
-                if classe_ed == "Ações":
-                    editar_ativo(ticker_editando, {"quantidade": nova_qtd, "preco_medio": novo_preco})
-                elif classe_ed == "FIIs":
-                    editar_ativo(ticker_editando, {"quantidade": nova_qtd, "preco_medio": novo_preco, "pvp": novo_pvp})
-                elif classe_ed == "Renda Fixa":
-                    editar_ativo(ticker_editando, {
-                        "ticker": novo_nome.strip().upper(),
-                        "preco_medio": novo_valor,
-                        "tipo_rentabilidade": novo_tipo,
-                        "taxa": nova_taxa,
-                        "data_aplicacao": nova_aplic.strftime("%d/%m/%Y"),
-                        "vencimento": novo_venc.strftime("%d/%m/%Y"),
-                    })
-                else:
-                    editar_ativo(ticker_editando, {"quantidade": nova_qtd, "preco_medio": novo_preco})
-                st.session_state["msg_edicao"] = f"{ticker_editando} atualizado com sucesso."
-                st.session_state["editando"] = None
-                st.rerun()
-
-            if cancelar:
-                st.session_state["editando"] = None
-                st.rerun()
-
-    st.divider()
-    tickers_cadastrados = [a["ticker"] for a in ativos]
-    ticker_remover = st.selectbox("Selecione o ativo para remover", tickers_cadastrados)
-    if st.button("Remover"):
-        remove_ativo(ticker_remover)
-        st.session_state["msg_remocao"] = f"{ticker_remover} removido da carteira."
-        st.rerun()
+    # ── Watchlist ─────────────────────────────────────────────────────────────
 
 # ── Watchlist ─────────────────────────────────────────────────────────────────
 st.divider()
