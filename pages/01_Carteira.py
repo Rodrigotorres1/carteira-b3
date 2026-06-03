@@ -287,72 +287,64 @@ else:
         m1, m2, m3, m4, m5 = st.columns(5)
         m1.metric("Preço atual",  fmt_brl(pa))
         m2.metric("Quantidade",   str(quantidade))
-        m3.metric("Ganho (R$)",   fmt_brl(ganho_rs),  delta=fmt_brl(ganho_rs),  delta_color="off")
-        m4.metric("Ganho (%)",    f"{ganho_pct:+.2f}%", delta=f"{ganho_pct:+.2f}%", delta_color="off")
+        m3.metric("Ganho (R$)",   fmt_brl(ganho_rs))
+        m4.metric("Ganho (%)",    f"{ganho_pct:+.2f}%")
         m5.metric("Valor total",  fmt_brl(valor_tot))
 
     if acoes:
         st.subheader("Ações")
         for a in acoes:
-            with st.expander(a["ticker"], expanded=False):
-                h1, h2 = st.columns([9, 1])
-                h1.caption(f"PM: {fmt_brl(float(a['preco_medio']))}")
-                with h2:
-                    _btn_remover(a["ticker"])
-                _cabecalho_ativo(a["ticker"], "Ações", float(a["preco_medio"]), float(a["quantidade"]))
-                _secao_compras(a["ticker"], "Ações")
+            col_exp, col_del = st.columns([10, 1])
+            with col_del:
+                _btn_remover(a["ticker"])
+            with col_exp:
+                with st.expander(a["ticker"], expanded=False):
+                    st.caption(f"PM: {fmt_brl(float(a['preco_medio']))}")
+                    _cabecalho_ativo(a["ticker"], "Ações", float(a["preco_medio"]), float(a["quantidade"]))
+                    _secao_compras(a["ticker"], "Ações")
 
     if fiis:
         st.subheader("FIIs")
         for a in fiis:
-            with st.expander(a["ticker"], expanded=False):
-                h1, h2 = st.columns([9, 1])
-                h1.caption(f"PM: {fmt_brl(float(a['preco_medio']))}")
-                with h2:
-                    _btn_remover(a["ticker"])
-                _cabecalho_ativo(a["ticker"], "FIIs", float(a["preco_medio"]), float(a["quantidade"]))
-                _secao_compras(a["ticker"], "FIIs")
+            col_exp, col_del = st.columns([10, 1])
+            with col_del:
+                _btn_remover(a["ticker"])
+            with col_exp:
+                with st.expander(a["ticker"], expanded=False):
+                    st.caption(f"PM: {fmt_brl(float(a['preco_medio']))}")
+                    _cabecalho_ativo(a["ticker"], "FIIs", float(a["preco_medio"]), float(a["quantidade"]))
+                    _secao_compras(a["ticker"], "FIIs")
 
     if renda_fixa:
         st.subheader("Renda Fixa")
-        st.markdown("""
-        <style>
-        [data-testid="stHorizontalBlock"]:has(button[title="Excluir"]) button[title="Excluir"] {
-            background: none !important;
-            border: none !important;
-            color: #888 !important;
-            font-size: 18px !important;
-            padding: 0 !important;
-            box-shadow: none !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        for a in renda_fixa:
-            with st.container(border=True):
-                h1, h2 = st.columns([9, 1])
-                h1.markdown(f"**{a['ticker']}**")
-                with h2:
-                    if st.button("🗑️", key=f"del_rf_{a['ticker']}", help="Excluir"):
-                        remove_ativo(a["ticker"])
-                        st.session_state["msg_remocao"] = f"{a['ticker']} removido."
-                        st.rerun()
-                d1, d2, d3, d4 = st.columns(4)
-                d1.caption("Valor");      d1.write(fmt_brl(a["preco_medio"]))
-                d2.caption("Tipo");       d2.write(a.get("tipo_rentabilidade") or "—")
-                d3.caption("Taxa");       d3.write(f"{a['taxa']:.1f}%" if a.get("taxa") is not None else "—")
-                d4.caption("Vencimento"); d4.write(a.get("vencimento") or "—")
+        for i, a in enumerate(renda_fixa):
+            col_card, col_del = st.columns([10, 1])
+            with col_del:
+                if st.button("🗑️", key=f"del_rf_{i}", help="Excluir"):
+                    remove_ativo(a["ticker"])
+                    st.session_state["msg_remocao"] = f"{a['ticker']} removido."
+                    st.rerun()
+            with col_card:
+                with st.container(border=True):
+                    st.markdown(f"**{a['ticker']}**")
+                    d1, d2, d3, d4 = st.columns(4)
+                    d1.caption("Valor");      d1.write(fmt_brl(a["preco_medio"]))
+                    d2.caption("Tipo");       d2.write(a.get("tipo_rentabilidade") or "—")
+                    d3.caption("Taxa");       d3.write(f"{a['taxa']:.1f}%" if a.get("taxa") is not None else "—")
+                    d4.caption("Vencimento"); d4.write(a.get("vencimento") or "—")
 
     if alternativos:
         st.subheader("Alternativo")
         for a in alternativos:
-            with st.expander(a["ticker"], expanded=False):
-                h1, h2 = st.columns([9, 1])
-                h1.caption(f"PM: {fmt_brl(float(a['preco_medio']))}")
-                with h2:
-                    _btn_remover(a["ticker"])
-                _cabecalho_ativo(a["ticker"], "Alternativo",
-                                 float(a["preco_medio"]), float(a["quantidade"]))
-                _secao_compras(a["ticker"], "Alternativo")
+            col_exp, col_del = st.columns([10, 1])
+            with col_del:
+                _btn_remover(a["ticker"])
+            with col_exp:
+                with st.expander(a["ticker"], expanded=False):
+                    st.caption(f"PM: {fmt_brl(float(a['preco_medio']))}")
+                    _cabecalho_ativo(a["ticker"], "Alternativo",
+                                     float(a["preco_medio"]), float(a["quantidade"]))
+                    _secao_compras(a["ticker"], "Alternativo")
 
     # ── Watchlist ─────────────────────────────────────────────────────────────
 
