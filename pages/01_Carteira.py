@@ -43,20 +43,27 @@ if classe == "Renda Fixa":
 with st.form("form_add_ativo", clear_on_submit=True):
     if classe == "Ações":
         identificador = st.text_input("Ticker", placeholder="Ex: BBAS3")
-        quantidade = st.number_input("Quantidade", min_value=1, step=1, value=1)
-        preco_medio = st.number_input("Preço Médio por cota (R$)", min_value=0.01, format="%.2f", value=0.01)
-        vencimento = None
-        data_aplicacao = None
-        taxa = None
-        pvp = None
+        f1, f2, f3 = st.columns(3)
+        with f1:
+            quantidade  = st.number_input("Quantidade", min_value=0.01, step=1.0, value=1.0)
+        with f2:
+            data_compra_form = st.date_input("Data da compra", value=date.today())
+        with f3:
+            preco_compra_form = st.number_input("Preço de compra (R$)", min_value=0.01, format="%.2f", value=0.01)
+        preco_medio = preco_compra_form
+        vencimento = None; data_aplicacao = None; taxa = None; pvp = None
 
     elif classe == "FIIs":
         identificador = st.text_input("Ticker", placeholder="Ex: KNRI11")
-        quantidade = st.number_input("Quantidade", min_value=1, step=1, value=1)
-        preco_medio = st.number_input("Preço Médio por cota (R$)", min_value=0.01, format="%.2f", value=0.01)
+        f1, f2, f3 = st.columns(3)
+        with f1:
+            quantidade  = st.number_input("Quantidade", min_value=0.01, step=1.0, value=1.0)
+        with f2:
+            data_compra_form = st.date_input("Data da compra", value=date.today())
+        with f3:
+            preco_compra_form = st.number_input("Preço de compra (R$)", min_value=0.01, format="%.2f", value=0.01)
         pvp = st.number_input(
-            "P/VP atual",
-            min_value=0.01, max_value=5.0, step=0.01, format="%.2f", value=1.0,
+            "P/VP atual", min_value=0.01, max_value=5.0, step=0.01, format="%.2f", value=1.0,
             help="Valor Patrimonial por Cota. Consulte na sua corretora ou no Funds Explorer.",
         )
         if pvp < 0.95:
@@ -69,9 +76,8 @@ with st.form("form_add_ativo", clear_on_submit=True):
             _pvp_cor, _pvp_txt = "#FF4B4B", "Prêmio elevado sobre o patrimônio: risco de sobrepreço"
         st.markdown(f"<span style='color:{_pvp_cor};font-size:0.85rem'>{_pvp_txt}</span>",
                     unsafe_allow_html=True)
-        vencimento = None
-        data_aplicacao = None
-        taxa = None
+        preco_medio = preco_compra_form
+        vencimento = None; data_aplicacao = None; taxa = None
 
     elif classe == "Renda Fixa":
         identificador = st.text_input("Nome do ativo", placeholder="Ex: Tesouro Prefixado 2032")
@@ -115,34 +121,57 @@ with st.form("form_add_ativo", clear_on_submit=True):
             "Tickers suportados: BTC-USD (Bitcoin), GC=F (Ouro), SI=F (Prata). "
             "Para ETFs brasileiros use o código sem sufixo .SA: GOLD11, BOVA11."
         )
-        quantidade = st.number_input(
-            "Quantidade", min_value=0.00000001, format="%.8f", value=0.001,
-            help="Para Bitcoin use decimais (ex: 0.01 BTC). Para Ouro use frações de onça (ex: 0.5). Tickers aceitos: BTC-USD, GC=F (Ouro), SI=F (Prata)",
-        )
-        preco_medio = st.number_input("Preço Médio (R$)", min_value=0.01, format="%.2f", value=0.01)
-        vencimento = None
-        data_aplicacao = None
-        taxa = None
-        pvp = None
+        f1, f2, f3 = st.columns(3)
+        with f1:
+            quantidade = st.number_input(
+                "Quantidade", min_value=0.00000001, format="%.8f", value=0.001,
+                help="Para Bitcoin use decimais (ex: 0.01 BTC).",
+            )
+        with f2:
+            data_compra_form = st.date_input("Data da compra", value=date.today())
+        with f3:
+            preco_compra_form = st.number_input("Preço de compra (R$)", min_value=0.01, format="%.2f", value=0.01)
+        preco_medio = preco_compra_form
+        vencimento = None; data_aplicacao = None; taxa = None; pvp = None
 
     submitted = st.form_submit_button("Adicionar")
 
 if submitted:
-    nome = identificador.strip()
+    nome = identificador.strip().upper()
     if not nome:
         st.warning("Preencha o identificador do ativo.")
-    elif ativo_existe(nome):
-        st.warning(f"{nome.upper()} já está cadastrado na carteira.")
+    elif classe in ("Ações", "FIIs", "Alternativo"):
+        # Compra-first: registra a compra e recalcula o ativo
+        salvar_compra(nome, data_compra_form.strftime("%Y-%m-%d"), quantidade, preco_compra_form)
+        if ativo_existe(nome):
+            _pvp_val = pvp if classe == "FIIs" else None
+            # _recalcular_ativo_por_compras não está disponível fora do else ativos,
+            # então recalculamos inline
+            todas = get_compras(nome)
+            qtd_t = sum(float(c["quantidade"]) for c in todas)
+            pm_t  = sum(float(c["quantidade"]) * float(c["preco_compra"]) for c in todas) / qtd_t
+            upd: dict = {"quantidade": qtd_t, "preco_medio": round(pm_t, 4)}
+            if _pvp_val is not None:
+                upd["pvp"] = _pvp_val
+            editar_ativo(nome, upd)
+        else:
+            add_ativo(nome, quantidade, round(preco_compra_form, 4), classe,
+                      pvp=pvp if classe == "FIIs" else None)
+        st.success(f"{nome} adicionado com sucesso. Preco médio calculado pela compra registrada.")
     else:
-        add_ativo(
-            nome, quantidade, preco_medio, classe,
-            vencimento=vencimento,
-            data_aplicacao=data_aplicacao,
-            tipo_rentabilidade=tipo_rentabilidade,
-            taxa=taxa,
-            pvp=pvp,
-        )
-        st.success(f"{nome.upper()} adicionado com sucesso.")
+        # Renda Fixa: fluxo original
+        if ativo_existe(nome):
+            st.warning(f"{nome} já está cadastrado na carteira.")
+        else:
+            add_ativo(
+                nome, quantidade, preco_medio, classe,
+                vencimento=vencimento,
+                data_aplicacao=data_aplicacao,
+                tipo_rentabilidade=tipo_rentabilidade,
+                taxa=taxa,
+                pvp=pvp,
+            )
+            st.success(f"{nome} adicionado com sucesso.")
 
 # ── Ativos Cadastrados ────────────────────────────────────────────────────────
 st.header("Ativos Cadastrados")
@@ -160,6 +189,22 @@ else:
         if st.button("Editar", key=f"edit_{ticker}", use_container_width=True):
             st.session_state["editando"] = ticker
             st.rerun()
+
+    def _recalcular_ativo_por_compras(ticker: str, classe: str, pvp: float | None = None) -> None:
+        """Recalcula preco_medio e quantidade_total a partir das compras e atualiza o ativo."""
+        compras = get_compras(ticker)
+        if not compras:
+            remove_ativo(ticker)
+            return
+        qtd_total = sum(float(c["quantidade"]) for c in compras)
+        pm = sum(float(c["quantidade"]) * float(c["preco_compra"]) for c in compras) / qtd_total
+        if ativo_existe(ticker):
+            update: dict = {"quantidade": qtd_total, "preco_medio": round(pm, 4)}
+            if pvp is not None:
+                update["pvp"] = pvp
+            editar_ativo(ticker, update)
+        else:
+            add_ativo(ticker, qtd_total, round(pm, 4), classe, pvp=pvp)
 
     def _secao_compras(ticker: str, classe: str) -> None:
         """Exibe tabela de compras e formulário de registro para um ativo."""
@@ -195,6 +240,7 @@ else:
                 with r6:
                     if st.button("🗑", key=f"del_compra_{c['id']}", help="Remover"):
                         deletar_compra(str(c["id"]))
+                        _recalcular_ativo_por_compras(ticker, classe)
                         st.rerun()
 
         key_form = f"show_form_compra_{ticker}"
@@ -215,11 +261,12 @@ else:
                                               format="%.2f", value=preco_atual or 0.01,
                                               key=f"preco_c_{ticker}")
                 sb, cb = st.columns(2)
-                salvar  = sb.form_submit_button("Salvar",   use_container_width=True, type="primary")
+                salvar   = sb.form_submit_button("Salvar",   use_container_width=True, type="primary")
                 cancelar = cb.form_submit_button("Cancelar", use_container_width=True)
 
                 if salvar:
                     salvar_compra(ticker, data_c.strftime("%Y-%m-%d"), qtd_c, preco_c)
+                    _recalcular_ativo_por_compras(ticker, classe)
                     st.session_state[key_form] = False
                     st.rerun()
                 if cancelar:
