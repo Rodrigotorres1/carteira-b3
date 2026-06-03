@@ -154,7 +154,14 @@ def gerar_pdf_carteira(
             ticker_val = a.get("ticker", "")
 
             if "BTC" in ticker_val or "ETH" in ticker_val:
-                qt_str = f"{qt:.8f}".rstrip('0').rstrip('.')
+                if qt >= 1:
+                    qt_str = f"{qt:.4f}".rstrip('0').rstrip('.')
+                elif qt >= 0.001:
+                    qt_str = f"{qt:.6f}".rstrip('0').rstrip('.')
+                elif qt >= 0.000001:
+                    qt_str = f"{qt:.8f}".rstrip('0').rstrip('.')
+                else:
+                    qt_str = f"{qt:.2e}"
             elif isinstance(qt, float) and qt != int(qt):
                 qt_str = f"{qt:.4f}".rstrip('0').rstrip('.')
             else:
