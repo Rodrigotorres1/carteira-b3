@@ -314,7 +314,7 @@ else:
         """Popover ⋮ com opção de excluir o ativo e todas as suas compras."""
         with st.popover("⋮"):
             if st.button("Excluir ativo", key=f"excluir_{ticker}",
-                         type="primary", use_container_width=True):
+                         use_container_width=True):
                 for c in get_compras(ticker):
                     deletar_compra(str(c["id"]))
                 remove_ativo(ticker)
@@ -352,7 +352,7 @@ else:
                 with h2:
                     with st.popover("⋮"):
                         if st.button("Excluir", key=f"excluir_rf_{a['ticker']}",
-                                     type="primary", use_container_width=True):
+                                     use_container_width=True):
                             remove_ativo(a["ticker"])
                             st.session_state["msg_remocao"] = f"{a['ticker']} removido."
                             st.rerun()
