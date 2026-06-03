@@ -635,6 +635,12 @@ def salvar_snapshot_patrimonio() -> None:
                         valor_atual = valor_investido
                     valor_total += valor_atual
 
+            # Validação: evita queda brusca por erro de API
+            if historico:
+                ultimo_valor_hist = historico[-1].get("valor", 0)
+                if ultimo_valor_hist > 0 and valor_total < ultimo_valor_hist * 0.5:
+                    valor_total = ultimo_valor_hist
+
             rendimento_pct = ((valor_total - custo_total) / custo_total * 100) if custo_total > 0 else 0.0
             historico.append({
                 "data":           data_alvo.strftime("%d/%m/%Y"),
