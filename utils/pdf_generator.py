@@ -161,7 +161,8 @@ def gerar_pdf_carteira(
                 qt_str = str(int(qt))
 
             ticker_display = Paragraph(ticker_val, estilo_celula)
-            dados_tab.append([ticker_display, qt_str, _fmt_brl(pm), _fmt_brl(pa), _fmt_brl(vt), f"{var:+.1f}%"])
+            qtd_display    = Paragraph(qt_str, estilo_celula)
+            dados_tab.append([ticker_display, qtd_display, _fmt_brl(pm), _fmt_brl(pa), _fmt_brl(vt), f"{var:+.1f}%"])
 
         tabela = Table(dados_tab, colWidths=[3.5 * cm, 1.5 * cm, 2.8 * cm, 2.8 * cm, 2.8 * cm, 2.1 * cm])
         tabela.setStyle(TableStyle([
