@@ -1,5 +1,11 @@
 import io
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+
+_FUSO_BRASILIA = timezone(timedelta(hours=-3))
+
+
+def _agora() -> datetime:
+    return datetime.now(_FUSO_BRASILIA)
 
 from reportlab.lib.colors import HexColor, white
 from reportlab.lib.enums import TA_CENTER
@@ -74,7 +80,7 @@ def gerar_pdf_carteira(
     # ── Cabeçalho ────────────────────────────────────────────────────────────
     elementos.append(Paragraph("Carteira B3", estilo_titulo))
     elementos.append(Paragraph(
-        f"Relatório gerado em {datetime.now().strftime('%d/%m/%Y às %H:%M')} | {user_email}",
+        f"Relatório gerado em {_agora().strftime('%d/%m/%Y às %H:%M')} | {user_email}",
         estilo_subtitulo,
     ))
     elementos.append(HRFlowable(width="100%", thickness=2, color=COR_PRINCIPAL, spaceAfter=20))
@@ -88,7 +94,7 @@ def gerar_pdf_carteira(
         ["Patrimônio Total",    _fmt_brl(valor_total)],
         ["Perfil do Investidor", perfil.capitalize()],
         ["Total de Ativos",     str(len(ativos))],
-        ["Data do Relatório",   datetime.now().strftime("%d/%m/%Y")],
+        ["Data do Relatório",   _agora().strftime("%d/%m/%Y")],
     ], colWidths=[8 * cm, 8 * cm])
     tabela_resumo.setStyle(TableStyle([
         ('BACKGROUND',  (0, 0), (0, -1), HexColor('#F5F5F5')),
@@ -126,6 +132,10 @@ def gerar_pdf_carteira(
     # ── Ativos por Classe ─────────────────────────────────────────────────────
     elementos.append(Paragraph("Ativos da Carteira", estilo_secao))
 
+    estilo_celula = ParagraphStyle(
+        'Celula', parent=styles['Normal'], fontSize=9, wordWrap='LTR',
+    )
+
     classes = sorted(set(a.get("classe", "Outros") for a in ativos))
     for classe in classes:
         ativos_classe = [a for a in ativos if a.get("classe") == classe]
@@ -136,14 +146,24 @@ def gerar_pdf_carteira(
 
         dados_tab = [["Ticker", "Qtd.", "Preço Médio", "Preço Atual", "Valor Total", "Variação"]]
         for a in ativos_classe:
-            pm  = a.get("preco_medio", 0)
-            pa  = a.get("preco_atual") or pm
-            qt  = a.get("quantidade", 0)
-            vt  = a.get("valor_atual", pm * qt)
-            var = ((pa - pm) / pm * 100) if pm > 0 else 0
-            dados_tab.append([a.get("ticker", ""), str(qt), _fmt_brl(pm), _fmt_brl(pa), _fmt_brl(vt), f"{var:+.1f}%"])
+            pm         = a.get("preco_medio", 0)
+            pa         = a.get("preco_atual") or pm
+            qt         = a.get("quantidade", 0)
+            vt         = a.get("valor_atual", pm * qt)
+            var        = ((pa - pm) / pm * 100) if pm > 0 else 0
+            ticker_val = a.get("ticker", "")
 
-        tabela = Table(dados_tab, colWidths=[2.5 * cm, 1.5 * cm, 3 * cm, 3 * cm, 3 * cm, 2.5 * cm])
+            if "BTC" in ticker_val or "ETH" in ticker_val:
+                qt_str = f"{qt:.8f}".rstrip('0').rstrip('.')
+            elif isinstance(qt, float) and qt != int(qt):
+                qt_str = f"{qt:.4f}".rstrip('0').rstrip('.')
+            else:
+                qt_str = str(int(qt))
+
+            ticker_display = Paragraph(ticker_val, estilo_celula)
+            dados_tab.append([ticker_display, qt_str, _fmt_brl(pm), _fmt_brl(pa), _fmt_brl(vt), f"{var:+.1f}%"])
+
+        tabela = Table(dados_tab, colWidths=[3.5 * cm, 1.5 * cm, 2.8 * cm, 2.8 * cm, 2.8 * cm, 2.1 * cm])
         tabela.setStyle(TableStyle([
             ('BACKGROUND',    (0, 0), (-1, 0), COR_FUNDO_ESCURO),
             ('TEXTCOLOR',     (0, 0), (-1, 0), white),
