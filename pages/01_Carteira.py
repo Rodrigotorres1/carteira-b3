@@ -313,7 +313,7 @@ else:
     def _menu_excluir(ticker: str, classe: str) -> None:
         """Popover ⋮ com opção de excluir o ativo e todas as suas compras."""
         with st.popover("⋮"):
-            if st.button("🗑️ Excluir ativo", key=f"excluir_{ticker}",
+            if st.button("Excluir ativo", key=f"excluir_{ticker}",
                          type="primary", use_container_width=True):
                 for c in get_compras(ticker):
                     deletar_compra(str(c["id"]))
@@ -351,7 +351,7 @@ else:
                 h1.markdown(f"**{a['ticker']}**")
                 with h2:
                     with st.popover("⋮"):
-                        if st.button("🗑️ Excluir", key=f"excluir_rf_{a['ticker']}",
+                        if st.button("Excluir", key=f"excluir_rf_{a['ticker']}",
                                      type="primary", use_container_width=True):
                             remove_ativo(a["ticker"])
                             st.session_state["msg_remocao"] = f"{a['ticker']} removido."
