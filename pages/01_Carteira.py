@@ -302,37 +302,46 @@ else:
         st.subheader("Ações")
         for a in acoes:
             with st.expander(a["ticker"], expanded=False):
+                h1, h2 = st.columns([8, 1])
+                h1.markdown(f"**{a['ticker']}**")
+                with h2:
+                    _btn_remover(a["ticker"])
                 _cabecalho_ativo(a["ticker"], "Ações", float(a["preco_medio"]), float(a["quantidade"]))
                 _secao_compras(a["ticker"], "Ações")
 
     if fiis:
         st.subheader("FIIs")
         for a in fiis:
-            pvp_val = a.get("pvp")
             with st.expander(a["ticker"], expanded=False):
+                h1, h2 = st.columns([8, 1])
+                h1.markdown(f"**{a['ticker']}**")
+                with h2:
+                    _btn_remover(a["ticker"])
                 _cabecalho_ativo(a["ticker"], "FIIs", float(a["preco_medio"]), float(a["quantidade"]))
                 _secao_compras(a["ticker"], "FIIs")
 
     if renda_fixa:
         st.subheader("Renda Fixa")
-        for i, a in enumerate(renda_fixa):
+        for a in renda_fixa:
             with st.container(border=True):
-                l1, l2 = st.columns([5, 1])
-                l1.write(a["ticker"])
-                with l2: _btn_remover(a["ticker"])
+                h1, h2 = st.columns([8, 1])
+                h1.markdown(f"**{a['ticker']}**")
+                with h2:
+                    _btn_remover(a["ticker"])
                 d1, d2, d3, d4 = st.columns(4)
-                if i == 0:
-                    d1.caption("Valor"); d2.caption("Tipo")
-                    d3.caption("Taxa"); d4.caption("Vencimento")
-                d1.write(fmt_brl(a["preco_medio"]))
-                d2.write(a.get("tipo_rentabilidade") or "—")
-                d3.write(f"{a['taxa']:.1f}%" if a.get("taxa") is not None else "—")
-                d4.write(a.get("vencimento") or "—")
+                d1.caption("Valor");      d1.write(fmt_brl(a["preco_medio"]))
+                d2.caption("Tipo");       d2.write(a.get("tipo_rentabilidade") or "—")
+                d3.caption("Taxa");       d3.write(f"{a['taxa']:.1f}%" if a.get("taxa") is not None else "—")
+                d4.caption("Vencimento"); d4.write(a.get("vencimento") or "—")
 
     if alternativos:
         st.subheader("Alternativo")
         for a in alternativos:
             with st.expander(a["ticker"], expanded=False):
+                h1, h2 = st.columns([8, 1])
+                h1.markdown(f"**{a['ticker']}**")
+                with h2:
+                    _btn_remover(a["ticker"])
                 _cabecalho_ativo(a["ticker"], "Alternativo",
                                  float(a["preco_medio"]), float(a["quantidade"]))
                 _secao_compras(a["ticker"], "Alternativo")
