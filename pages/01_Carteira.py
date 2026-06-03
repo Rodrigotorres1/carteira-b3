@@ -273,31 +273,40 @@ else:
                     st.session_state[key_form] = False
                     st.rerun()
 
+    def _cabecalho_ativo(ticker: str, classe: str, preco_medio: float, quantidade: float) -> None:
+        """Exibe cabeçalho estilo Google Finanças com métricas calculadas em tempo real."""
+        pa = get_preco_atual(ticker, classe) or preco_medio
+        qtd = quantidade
+        ganho_rs  = (pa - preco_medio) * qtd
+        ganho_pct = (pa / preco_medio - 1) * 100 if preco_medio > 0 else 0.0
+        valor_tot = pa * qtd
+        cor = "#00C896" if ganho_rs >= 0 else "#FF4B4B"
+
+        m1, m2, m3, m4, m5 = st.columns(5)
+        m1.metric("Preço atual",      fmt_brl(pa))
+        m2.metric("Quantidade",       str(qtd))
+        m3.metric("Ganho (R$)",       fmt_brl(ganho_rs),
+                  delta=fmt_brl(ganho_rs),
+                  delta_color="normal" if ganho_rs >= 0 else "inverse")
+        m4.metric("Ganho (%)",        f"{ganho_pct:+.2f}%",
+                  delta=f"{ganho_pct:+.2f}%",
+                  delta_color="normal" if ganho_pct >= 0 else "inverse")
+        m5.metric("Valor total",      fmt_brl(valor_tot))
+        st.caption(f"PM: {fmt_brl(preco_medio)}")
+
     if acoes:
         st.subheader("Ações")
         for a in acoes:
-            with st.expander(f"{a['ticker']}  —  {fmt_brl(a['preco_medio'])} PM  ·  {a['quantidade']} cotas"):
-                c1, c2, c3, c4 = st.columns([3, 2, 3, 1])
-                c1.caption("Ticker"); c2.caption("Quantidade")
-                c3.caption("Preço Médio"); c4.write("")
-                c1.write(a["ticker"]); c2.write(str(a["quantidade"]))
-                c3.write(fmt_brl(a["preco_medio"]))
-                with c4: _btn_editar(a["ticker"])
+            with st.expander(a["ticker"], expanded=False):
+                _cabecalho_ativo(a["ticker"], "Ações", float(a["preco_medio"]), float(a["quantidade"]))
                 _secao_compras(a["ticker"], "Ações")
 
     if fiis:
         st.subheader("FIIs")
         for a in fiis:
-            pvp_val   = a.get("pvp")
-            texto_pvp = f"{pvp_val:.2f}" if pvp_val is not None and float(pvp_val) > 0 else "—"
-            with st.expander(f"{a['ticker']}  —  {fmt_brl(a['preco_medio'])} PM  ·  {a['quantidade']} cotas  ·  P/VP {texto_pvp}"):
-                c1, c2, c3, c4, c5 = st.columns([4, 2, 3, 2, 1])
-                c1.caption("Ticker"); c2.caption("Quantidade")
-                c3.caption("Preço Médio"); c4.caption("P/VP"); c5.write("")
-                c1.write(a["ticker"]); c2.write(str(a["quantidade"]))
-                c3.write(fmt_brl(a["preco_medio"]))
-                c4.write(texto_pvp)
-                with c5: _btn_editar(a["ticker"])
+            pvp_val = a.get("pvp")
+            with st.expander(a["ticker"], expanded=False):
+                _cabecalho_ativo(a["ticker"], "FIIs", float(a["preco_medio"]), float(a["quantidade"]))
                 _secao_compras(a["ticker"], "FIIs")
 
     if renda_fixa:
