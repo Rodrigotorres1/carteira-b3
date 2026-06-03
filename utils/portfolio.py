@@ -668,7 +668,103 @@ def salvar_snapshot_patrimonio() -> None:
         pass
 
 
+def calcular_historico_por_compras() -> list:
+    """Reconstrói o histórico retroativamente usando o registro de compras."""
+    try:
+        import pandas as pd
+        import yfinance as yf
+        from utils.database import get_todas_compras
+
+        todas_compras = get_todas_compras()
+        if not todas_compras:
+            return []
+
+        for c in todas_compras:
+            c["_data"] = datetime.strptime(c["data_compra"], "%Y-%m-%d").date()
+
+        data_inicio = min(c["_data"] for c in todas_compras)
+        hoje        = date.today()
+        ativos      = get_ativos()
+        ativos_dict = {a["ticker"]: a for a in ativos}
+
+        # Tickers de Ações/FIIs com compras — baixa histórico em bulk
+        tickers_compras = list({c["ticker"] for c in todas_compras})
+        tickers_sa = [
+            t + ".SA" for t in tickers_compras
+            if ativos_dict.get(t, {}).get("classe") in ("Ações", "FIIs")
+        ]
+
+        precos_hist: dict[str, "pd.Series"] = {}
+        if tickers_sa:
+            raw = yf.download(tickers_sa, start=data_inicio.strftime("%Y-%m-%d"),
+                              auto_adjust=True, progress=False)
+            close = raw["Close"] if "Close" in raw else raw
+            if hasattr(close, "columns"):
+                for col in close.columns:
+                    ticker_orig = str(col).replace(".SA", "")
+                    precos_hist[ticker_orig] = close[col].dropna()
+            else:
+                # Único ticker retorna Series
+                ticker_orig = tickers_sa[0].replace(".SA", "")
+                precos_hist[ticker_orig] = close.dropna()
+
+        datas_range = pd.date_range(start=data_inicio, end=hoje, freq="B")
+        historico   = []
+
+        for dt in datas_range:
+            data_date = dt.date()
+            compras_ate = [c for c in todas_compras if c["_data"] <= data_date]
+            if not compras_ate:
+                continue
+
+            qtd_por_ticker: dict[str, float]   = {}
+            custo_por_ticker: dict[str, float] = {}
+            for c in compras_ate:
+                t = c["ticker"]
+                qtd_por_ticker[t]   = qtd_por_ticker.get(t, 0)   + float(c["quantidade"])
+                custo_por_ticker[t] = custo_por_ticker.get(t, 0) + float(c["quantidade"]) * float(c["preco_compra"])
+
+            custo_total = sum(custo_por_ticker.values())
+            valor_total = 0.0
+
+            for ticker, qtd in qtd_por_ticker.items():
+                ativo   = ativos_dict.get(ticker, {})
+                preco_m = float(ativo.get("preco_medio", 0))
+                if ticker in precos_hist:
+                    serie = precos_hist[ticker]
+                    try:
+                        ts = pd.Timestamp(dt).normalize()
+                        candidatos = serie[serie.index.normalize() <= ts]
+                        preco = float(candidatos.iloc[-1]) if not candidatos.empty else preco_m
+                    except Exception:
+                        preco = preco_m
+                else:
+                    preco = preco_m
+                valor_total += qtd * preco
+
+            # Ativos sem compras registradas: usa preco_medio × quantidade cadastrada
+            for ativo in ativos:
+                if ativo["ticker"] not in qtd_por_ticker:
+                    valor_total += float(ativo.get("quantidade", 0)) * float(ativo.get("preco_medio", 0))
+
+            rendimento_pct = ((valor_total - custo_total) / custo_total * 100) if custo_total > 0 else 0.0
+            historico.append({
+                "data":           data_date.strftime("%d/%m/%Y"),
+                "valor":          round(valor_total, 2),
+                "custo_total":    round(custo_total, 2),
+                "rendimento_pct": round(rendimento_pct, 2),
+                "num_ativos":     len(qtd_por_ticker),
+            })
+
+        return historico
+    except Exception:
+        return []
+
+
 def get_historico_patrimonio() -> list:
+    hist_compras = calcular_historico_por_compras()
+    if hist_compras:
+        return hist_compras
     return _load().get("historico_patrimonio", [])
 
 

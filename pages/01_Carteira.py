@@ -3,6 +3,7 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
+from utils.database import deletar_compra, get_compras, salvar_compra
 from utils.market_data import get_preco_atual
 from utils.portfolio import add_ativo, ativo_existe, editar_ativo, fmt_brl, get_ativos, get_watchlist, remove_ativo, remove_watchlist
 
@@ -160,32 +161,97 @@ else:
             st.session_state["editando"] = ticker
             st.rerun()
 
+    def _secao_compras(ticker: str, classe: str) -> None:
+        """Exibe tabela de compras e formulário de registro para um ativo."""
+        preco_atual = get_preco_atual(ticker, classe)
+        compras = get_compras(ticker)
+
+        st.divider()
+        st.caption("**Histórico de Compras**")
+
+        if compras:
+            cab1, cab2, cab3, cab4, cab5, cab6 = st.columns([2, 2, 2, 2, 2, 1])
+            cab1.caption("Data"); cab2.caption("Preço pago")
+            cab3.caption("Qtd."); cab4.caption("Ganho (R$)")
+            cab5.caption("Valor atual"); cab6.write("")
+
+            for c in compras:
+                qtd   = float(c["quantidade"])
+                p_pago = float(c["preco_compra"])
+                pa    = preco_atual or p_pago
+                ganho = (pa - p_pago) * qtd
+                v_at  = pa * qtd
+                cor   = "#00C896" if ganho >= 0 else "#FF4B4B"
+
+                r1, r2, r3, r4, r5, r6 = st.columns([2, 2, 2, 2, 2, 1])
+                r1.write(c["data_compra"])
+                r2.write(fmt_brl(p_pago))
+                r3.write(str(qtd))
+                r4.markdown(
+                    f"<span style='color:{cor};font-weight:600;'>{fmt_brl(ganho)}</span>",
+                    unsafe_allow_html=True,
+                )
+                r5.write(fmt_brl(v_at))
+                with r6:
+                    if st.button("🗑", key=f"del_compra_{c['id']}", help="Remover"):
+                        deletar_compra(str(c["id"]))
+                        st.rerun()
+
+        key_form = f"show_form_compra_{ticker}"
+        if st.button("+ Registrar compra", key=f"btn_reg_{ticker}"):
+            st.session_state[key_form] = True
+
+        if st.session_state.get(key_form):
+            with st.form(f"form_compra_{ticker}"):
+                fc1, fc2, fc3 = st.columns(3)
+                with fc1:
+                    qtd_c = st.number_input("Quantidade", min_value=0.01, step=1.0, value=1.0,
+                                            key=f"qtd_c_{ticker}")
+                with fc2:
+                    data_c = st.date_input("Data da compra", value=date.today(),
+                                           key=f"data_c_{ticker}")
+                with fc3:
+                    preco_c = st.number_input("Preço de compra (R$)", min_value=0.01,
+                                              format="%.2f", value=preco_atual or 0.01,
+                                              key=f"preco_c_{ticker}")
+                sb, cb = st.columns(2)
+                salvar  = sb.form_submit_button("Salvar",   use_container_width=True, type="primary")
+                cancelar = cb.form_submit_button("Cancelar", use_container_width=True)
+
+                if salvar:
+                    salvar_compra(ticker, data_c.strftime("%Y-%m-%d"), qtd_c, preco_c)
+                    st.session_state[key_form] = False
+                    st.rerun()
+                if cancelar:
+                    st.session_state[key_form] = False
+                    st.rerun()
+
     if acoes:
         st.subheader("Ações")
-        for i, a in enumerate(acoes):
-            with st.container(border=True):
+        for a in acoes:
+            with st.expander(f"{a['ticker']}  —  {fmt_brl(a['preco_medio'])} PM  ·  {a['quantidade']} cotas"):
                 c1, c2, c3, c4 = st.columns([3, 2, 3, 1])
-                if i == 0:
-                    c1.caption("Ticker"); c2.caption("Quantidade")
-                    c3.caption("Preço Médio"); c4.write("")
+                c1.caption("Ticker"); c2.caption("Quantidade")
+                c3.caption("Preço Médio"); c4.write("")
                 c1.write(a["ticker"]); c2.write(str(a["quantidade"]))
                 c3.write(fmt_brl(a["preco_medio"]))
                 with c4: _btn_editar(a["ticker"])
+                _secao_compras(a["ticker"], "Ações")
 
     if fiis:
         st.subheader("FIIs")
-        for i, a in enumerate(fiis):
-            pvp_val = a.get("pvp")
+        for a in fiis:
+            pvp_val   = a.get("pvp")
             texto_pvp = f"{pvp_val:.2f}" if pvp_val is not None and float(pvp_val) > 0 else "—"
-            with st.container(border=True):
+            with st.expander(f"{a['ticker']}  —  {fmt_brl(a['preco_medio'])} PM  ·  {a['quantidade']} cotas  ·  P/VP {texto_pvp}"):
                 c1, c2, c3, c4, c5 = st.columns([4, 2, 3, 2, 1])
-                if i == 0:
-                    c1.caption("Ticker"); c2.caption("Quantidade")
-                    c3.caption("Preço Médio"); c4.caption("P/VP"); c5.write("")
+                c1.caption("Ticker"); c2.caption("Quantidade")
+                c3.caption("Preço Médio"); c4.caption("P/VP"); c5.write("")
                 c1.write(a["ticker"]); c2.write(str(a["quantidade"]))
                 c3.write(fmt_brl(a["preco_medio"]))
                 c4.write(texto_pvp)
                 with c5: _btn_editar(a["ticker"])
+                _secao_compras(a["ticker"], "FIIs")
 
     if renda_fixa:
         st.subheader("Renda Fixa")

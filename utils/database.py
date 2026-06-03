@@ -101,6 +101,74 @@ def resetar_senha(email: str) -> dict:
         return {"success": False, "error": str(e)}
 
 
+def get_compras(ticker: str) -> list:
+    """Retorna compras registradas para um ticker do usuário atual."""
+    user_id = get_user_id()
+    if not user_id:
+        return []
+    try:
+        supabase = get_supabase_client()
+        result = (
+            supabase.table("compras")
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("ticker", ticker.upper())
+            .order("data_compra")
+            .execute()
+        )
+        return result.data or []
+    except Exception:
+        return []
+
+
+def get_todas_compras() -> list:
+    """Retorna todas as compras registradas do usuário atual."""
+    user_id = get_user_id()
+    if not user_id:
+        return []
+    try:
+        supabase = get_supabase_client()
+        result = (
+            supabase.table("compras")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("data_compra")
+            .execute()
+        )
+        return result.data or []
+    except Exception:
+        return []
+
+
+def salvar_compra(ticker: str, data_compra: str, quantidade: float, preco_compra: float) -> bool:
+    """Registra uma compra na tabela compras. data_compra em formato YYYY-MM-DD."""
+    user_id = get_user_id()
+    if not user_id:
+        return False
+    try:
+        supabase = get_supabase_client()
+        supabase.table("compras").insert({
+            "user_id":      user_id,
+            "ticker":       ticker.upper(),
+            "data_compra":  data_compra,
+            "quantidade":   quantidade,
+            "preco_compra": preco_compra,
+        }).execute()
+        return True
+    except Exception:
+        return False
+
+
+def deletar_compra(compra_id: str) -> bool:
+    """Remove uma compra pelo id."""
+    try:
+        supabase = get_supabase_client()
+        supabase.table("compras").delete().eq("id", compra_id).execute()
+        return True
+    except Exception:
+        return False
+
+
 def carregar_dados() -> dict:
     user_id = get_user_id()
     if not user_id:
