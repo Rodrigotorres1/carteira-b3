@@ -147,36 +147,66 @@ with tab_rent:
         df_r = df_r.copy()
         df_r["rent_pct"] = (df_r["valor"] / v0 - 1) * 100
 
+        cor_linha = "#00C896" if rendimento_pct >= 0 else "#FF4B4B"
+        fill_cor  = "rgba(0,200,150,0.15)" if rendimento_pct >= 0 else "rgba(255,75,75,0.12)"
+
+        y_vals = df_r["rent_pct"].tolist()
+        y_pos  = [v if v >= 0 else 0 for v in y_vals]
+        y_neg  = [v if v <= 0 else 0 for v in y_vals]
+
         fig = go.Figure()
+
+        # área positiva
+        fig.add_trace(go.Scatter(
+            x=df_r["data_dt"], y=y_pos,
+            showlegend=False, fill="tozeroy",
+            fillcolor="rgba(0,200,150,0.18)",
+            line={"width": 0}, hoverinfo="skip",
+        ))
+        # área negativa
+        fig.add_trace(go.Scatter(
+            x=df_r["data_dt"], y=y_neg,
+            showlegend=False, fill="tozeroy",
+            fillcolor="rgba(255,75,75,0.18)",
+            line={"width": 0}, hoverinfo="skip",
+        ))
+        # linha principal
         fig.add_trace(go.Scatter(
             x=df_r["data_dt"], y=df_r["rent_pct"],
-            showlegend=False,
-            fill="tozeroy",
-            fillcolor="rgba(0, 168, 120, 0.25)",
-            line={"color": "#00A878", "width": 2, "smoothing": 1.3},
+            name="Carteira", showlegend=benchmark != "Nenhum",
+            line={"color": cor_linha, "width": 2.5},
             line_shape="spline",
-            hovertemplate="%{y:.2f}%<extra></extra>",
+            hovertemplate="<b>%{x|%d/%m/%Y}</b><br>Carteira: %{y:.2f}%<extra></extra>",
         ))
 
         if benchmark != "Nenhum" and bench_pct_val is not None:
             cor_bench = _COR_BENCHMARK.get(benchmark, "#4A90D9")
             fig.add_trace(go.Scatter(
                 x=datas_b, y=vals_b,
-                showlegend=False,
-                line={"color": cor_bench, "dash": "dot", "width": 1.5, "smoothing": 1.3},
-                line_shape="spline",
-                hovertemplate=f"%{{y:.2f}}%<extra>{benchmark}</extra>",
+                name=benchmark, showlegend=True,
+                line={"color": cor_bench, "dash": "dash", "width": 1.8},
+                hovertemplate=f"<b>%{{x|%d/%m/%Y}}</b><br>{benchmark}: %{{y:.2f}}%<extra></extra>",
             ))
 
         fig.update_layout(
             hovermode="x unified",
-            showlegend=False,
+            legend={"orientation": "h", "yanchor": "bottom", "y": 1.02,
+                    "xanchor": "left", "x": 0, "font": {"size": 12}},
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
-            margin={"l": 40, "r": 20, "t": 10, "b": 40},
-            xaxis={"showgrid": False, "zeroline": False},
-            yaxis={"showgrid": False, "zeroline": False,
-                   "tickformat": ".1f", "ticksuffix": "%"},
+            margin={"l": 10, "r": 10, "t": 10, "b": 10},
+            xaxis={
+                "showgrid": False, "zeroline": False,
+                "tickformat": "%d/%m/%y", "tickangle": -30,
+                "tickfont": {"size": 11, "color": "#888"},
+            },
+            yaxis={
+                "showgrid": True, "gridcolor": "rgba(255,255,255,0.06)",
+                "zeroline": True, "zerolinecolor": "rgba(255,255,255,0.25)",
+                "zerolinewidth": 1.5,
+                "tickformat": ".1f", "ticksuffix": "%",
+                "tickfont": {"size": 11, "color": "#888"},
+            },
         )
         st.plotly_chart(fig, use_container_width=True)
 
@@ -231,22 +261,34 @@ with tab_patr:
             delta_color="normal" if var_p >= 0 else "inverse",
         )
 
+        cor_patr = "#00C896" if var_p >= 0 else "#FF4B4B"
+        fill_patr = "rgba(0,200,150,0.15)" if var_p >= 0 else "rgba(255,75,75,0.12)"
+
         fig2 = go.Figure()
         fig2.add_trace(go.Scatter(
             x=df_p["data_dt"], y=df_p["valor"],
-            name="Patrimônio",
-            fill="tozeroy",
-            fillcolor="rgba(0, 168, 120, 0.15)",
-            line={"color": "#00A878", "width": 2},
-            hovertemplate="R$ %{y:,.2f}<extra></extra>",
+            name="Patrimônio", showlegend=False,
+            fill="tozeroy", fillcolor=fill_patr,
+            line={"color": cor_patr, "width": 2.5},
+            line_shape="spline",
+            hovertemplate="<b>%{x|%d/%m/%Y}</b><br>R$ %{y:,.2f}<extra></extra>",
         ))
         fig2.update_layout(
-            yaxis_title="Valor (R$)",
-            xaxis_title="",
             hovermode="x unified",
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
-            yaxis={"tickprefix": "R$ "},
+            margin={"l": 10, "r": 10, "t": 10, "b": 10},
+            xaxis={
+                "showgrid": False, "zeroline": False,
+                "tickformat": "%d/%m/%y", "tickangle": -30,
+                "tickfont": {"size": 11, "color": "#888"},
+            },
+            yaxis={
+                "showgrid": True, "gridcolor": "rgba(255,255,255,0.06)",
+                "zeroline": False,
+                "tickprefix": "R$ ",
+                "tickfont": {"size": 11, "color": "#888"},
+            },
         )
         st.plotly_chart(fig2, use_container_width=True)
 
