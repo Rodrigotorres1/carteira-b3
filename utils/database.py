@@ -155,7 +155,9 @@ def salvar_compra(ticker: str, data_compra: str, quantidade: float, preco_compra
             "preco_compra": preco_compra,
         }).execute()
         return True
-    except Exception:
+    except Exception as e:
+        import streamlit as st
+        st.error(f"Erro ao salvar compra: {e}")
         return False
 
 
