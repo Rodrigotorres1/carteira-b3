@@ -87,9 +87,17 @@ def _buscar_benchmark_pct(nome: str, data_inicio: pd.Timestamp, indices: dict) -
 
 
 def _aporte_acumulado(df_patrimonio: pd.DataFrame) -> pd.Series | None:
-    """Retorna série de aporte acumulado alinhada às datas do patrimônio."""
+    """Retorna série de aporte acumulado alinhada às datas do patrimônio.
+    Para ativos sem compras registradas, usa preco_medio * quantidade como fallback.
+    """
+    todas_compras = get_todas_compras()
+    tickers_com_compras = {c["ticker"] for c in todas_compras}
+    data_base = df_patrimonio["data_dt"].min()
+
     eventos = []
-    for c in get_todas_compras():
+
+    # Compras com data e valor conhecidos
+    for c in todas_compras:
         try:
             eventos.append({
                 "data": pd.to_datetime(c["data_compra"]),
@@ -97,17 +105,34 @@ def _aporte_acumulado(df_patrimonio: pd.DataFrame) -> pd.Series | None:
             })
         except Exception:
             pass
+
     for a in get_ativos():
-        if a.get("classe") == "Renda Fixa" and a.get("data_aplicacao"):
+        classe = a.get("classe")
+        ticker = a.get("ticker", "")
+
+        if classe == "Renda Fixa":
+            # RF não usa tabela de compras — usa data_aplicacao e preco_medio
+            try:
+                data = pd.to_datetime(a["data_aplicacao"], dayfirst=True)
+            except Exception:
+                data = data_base
+            try:
+                eventos.append({"data": data, "valor": float(a["preco_medio"])})
+            except Exception:
+                pass
+        elif ticker not in tickers_com_compras:
+            # Ativo sem compras registradas → fallback
             try:
                 eventos.append({
-                    "data": pd.to_datetime(a["data_aplicacao"], dayfirst=True),
-                    "valor": float(a["preco_medio"]),
+                    "data": data_base,
+                    "valor": float(a["quantidade"]) * float(a["preco_medio"]),
                 })
             except Exception:
                 pass
+
     if not eventos:
         return None
+
     df_ev = (
         pd.DataFrame(eventos)
         .groupby("data")["valor"].sum()
