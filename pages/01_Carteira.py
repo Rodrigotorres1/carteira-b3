@@ -62,20 +62,7 @@ with st.form("form_add_ativo", clear_on_submit=True):
             data_compra_form = st.date_input("Data da compra", value=date.today())
         with f3:
             preco_compra_form = st.number_input("Preço de compra (R$)", min_value=0.01, format="%.2f", value=0.01)
-        pvp = st.number_input(
-            "P/VP atual", min_value=0.01, max_value=5.0, step=0.01, format="%.2f", value=1.0,
-            help="Valor Patrimonial por Cota. Consulte na sua corretora ou no Funds Explorer.",
-        )
-        if pvp < 0.95:
-            _pvp_cor, _pvp_txt = "#00A878", "Abaixo do patrimônio: desconto interessante"
-        elif pvp <= 1.05:
-            _pvp_cor, _pvp_txt = "#888888", "Próximo do valor patrimonial: preço justo"
-        elif pvp <= 1.20:
-            _pvp_cor, _pvp_txt = "#FFC107", "Acima do patrimônio: atenção ao preço de entrada"
-        else:
-            _pvp_cor, _pvp_txt = "#FF4B4B", "Prêmio elevado sobre o patrimônio: risco de sobrepreço"
-        st.markdown(f"<span style='color:{_pvp_cor};font-size:0.85rem'>{_pvp_txt}</span>",
-                    unsafe_allow_html=True)
+        pvp = None
         preco_medio = preco_compra_form
         vencimento = None; data_aplicacao = None; taxa = None
 
@@ -144,19 +131,12 @@ if submitted:
         # Compra-first: registra a compra e recalcula o ativo
         salvar_compra(nome, data_compra_form.strftime("%Y-%m-%d"), quantidade, preco_compra_form)
         if ativo_existe(nome):
-            _pvp_val = pvp if classe == "FIIs" else None
-            # _recalcular_ativo_por_compras não está disponível fora do else ativos,
-            # então recalculamos inline
             todas = get_compras(nome)
             qtd_t = sum(float(c["quantidade"]) for c in todas)
             pm_t  = sum(float(c["quantidade"]) * float(c["preco_compra"]) for c in todas) / qtd_t
-            upd: dict = {"quantidade": qtd_t, "preco_medio": round(pm_t, 4)}
-            if _pvp_val is not None:
-                upd["pvp"] = _pvp_val
-            editar_ativo(nome, upd)
+            editar_ativo(nome, {"quantidade": qtd_t, "preco_medio": round(pm_t, 4)})
         else:
-            add_ativo(nome, quantidade, round(preco_compra_form, 4), classe,
-                      pvp=pvp if classe == "FIIs" else None)
+            add_ativo(nome, quantidade, round(preco_compra_form, 4), classe)
         st.success(f"{nome} adicionado com sucesso. Preco médio calculado pela compra registrada.")
     else:
         # Renda Fixa: fluxo original
