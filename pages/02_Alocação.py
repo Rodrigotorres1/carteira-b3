@@ -73,6 +73,15 @@ for classe in CLASSES_PADRAO:
 df = pd.DataFrame(linhas)
 
 
+def _fmt_pct(x: float) -> str:
+    return f"{x:.0f}" if x == int(x) else f"{x:.2f}"
+
+
+def _fmt_pct_diff(x: float) -> str:
+    s = "+" if x >= 0 else ""
+    return f"{s}{_fmt_pct(x)}"
+
+
 _linhas_html = ""
 for row in linhas:
     cor_css = _cor_diferenca(row["Diferença (%)"])
@@ -80,9 +89,9 @@ for row in linhas:
     _linhas_html += (
         f"<tr>"
         f"<td style='padding:8px 12px'>{row['Classe']}</td>"
-        f"<td style='padding:8px 12px; text-align:right'>{row['Atual (%)']:.2f}</td>"
-        f"<td style='padding:8px 12px; text-align:right'>{row['Alvo (%)']:.2f}</td>"
-        f"<td style='padding:8px 12px; text-align:right; color:{cor_hex}; font-weight:600'>{row['Diferença (%)']:+.2f}</td>"
+        f"<td style='padding:8px 12px; text-align:right'>{_fmt_pct(row['Atual (%)'])}</td>"
+        f"<td style='padding:8px 12px; text-align:right'>{_fmt_pct(row['Alvo (%)'])}</td>"
+        f"<td style='padding:8px 12px; text-align:right; color:{cor_hex}; font-weight:600'>{_fmt_pct_diff(row['Diferença (%)'])}</td>"
         f"</tr>"
     )
 
