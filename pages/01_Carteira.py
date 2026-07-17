@@ -294,7 +294,8 @@ else:
 
         m1, m2, m3, m4, m5 = st.columns(5)
         m1.metric("Preço atual",  fmt_brl(pa))
-        m2.metric("Quantidade",   str(quantidade))
+        qtd_fmt = str(int(quantidade)) if classe in ("Ações", "FIIs") and quantidade == int(quantidade) else f"{quantidade:g}"
+        m2.metric("Quantidade", qtd_fmt)
         m3.markdown(f"""
             <div style='font-size:13px; color:#888; margin-bottom:4px'>Ganho (R$)</div>
             <div style='font-size:24px; font-weight:700; color:{cor}'>{seta} {fmt_brl(abs(ganho_rs))}</div>
