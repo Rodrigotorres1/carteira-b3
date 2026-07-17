@@ -115,14 +115,14 @@ for _, row in df.iterrows():
     diff_abs = abs(row["Diferença (%)"])
     if diff_abs > 8:
         st.error(
-            f"{row['Classe']}: diferença de {row['Diferença (%)']:+.2f}% em relação ao alvo "
-            f"({row['Atual (%)']:.2f}% atual vs {row['Alvo (%)']:.2f}% alvo)."
+            f"{row['Classe']}: diferença de {_fmt_pct_diff(row['Diferença (%)'])}% em relação ao alvo "
+            f"({_fmt_pct(row['Atual (%)'])}% atual vs {_fmt_pct(row['Alvo (%)'])}% alvo)."
         )
         alertas = True
     elif diff_abs > 3:
         st.warning(
-            f"{row['Classe']}: diferença de {row['Diferença (%)']:+.2f}% em relação ao alvo "
-            f"({row['Atual (%)']:.2f}% atual vs {row['Alvo (%)']:.2f}% alvo)."
+            f"{row['Classe']}: diferença de {_fmt_pct_diff(row['Diferença (%)'])}% em relação ao alvo "
+            f"({_fmt_pct(row['Atual (%)'])}% atual vs {_fmt_pct(row['Alvo (%)'])}% alvo)."
         )
         alertas = True
 
