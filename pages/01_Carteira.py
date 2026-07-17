@@ -218,11 +218,6 @@ else:
         st.divider()
         st.caption("**Histórico de Compras**")
 
-        cab1, cab2, cab3, cab4, cab5, cab6, cab7 = st.columns([2, 2, 1.5, 2, 2, 2, 1])
-        cab1.caption("Data"); cab2.caption("Preço pago")
-        cab3.caption("Qtd."); cab4.caption("Ganho (R$)")
-        cab5.caption("Ganho (%)"); cab6.caption("Valor atual"); cab7.write("")
-
         def _linha_compra(data_str: str, p_pago: float, qtd: float, row_key: str | None) -> None:
             pa        = preco_atual or p_pago
             ganho     = (pa - p_pago) * qtd
@@ -248,10 +243,14 @@ else:
                     st.rerun()
 
         if compras:
+            cab1, cab2, cab3, cab4, cab5, cab6, cab7 = st.columns([2, 2, 1.5, 2, 2, 2, 1])
+            cab1.caption("Data"); cab2.caption("Preço pago")
+            cab3.caption("Qtd."); cab4.caption("Ganho (R$)")
+            cab5.caption("Ganho (%)"); cab6.caption("Valor atual"); cab7.write("")
             for c in compras:
                 _linha_compra(c["data_compra"], float(c["preco_compra"]), float(c["quantidade"]), str(c["id"]))
         else:
-            _linha_compra("—", float(ativo["preco_medio"]), float(ativo["quantidade"]), None)
+            st.caption("Nenhuma compra registrada. Use '+ Registrar compra' para vincular a data de aquisição.")
 
         key_form = f"show_form_compra_{ticker}"
         if st.button("+ Registrar compra", key=f"btn_reg_{ticker}"):
