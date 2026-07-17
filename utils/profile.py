@@ -32,3 +32,11 @@ def save_profile(perfil: str) -> None:
     data["perfil"] = perfil
     data["alocacao_alvo"] = _ALOCACOES[perfil]
     _dump(data)
+
+
+def save_alocacao_personalizada(alocacao: dict) -> None:
+    """Salva alocação definida manualmente pelo usuário."""
+    data = _load()
+    data["perfil"] = "personalizado"
+    data["alocacao_alvo"] = alocacao
+    _dump(data)
