@@ -236,7 +236,7 @@ else:
                 r1, r2, r3, r4, r5, r6, r7 = st.columns([2, 2, 1.5, 2, 2, 2, 1])
                 r1.write(c["data_compra"])
                 r2.write(fmt_brl(p_pago))
-                r3.write(str(qtd))
+                r3.write(f"{qtd:g}")
                 r4.markdown(
                     f"<span style='color:{cor};font-weight:600;'>{seta} {fmt_brl(abs(ganho))}</span>",
                     unsafe_allow_html=True,
