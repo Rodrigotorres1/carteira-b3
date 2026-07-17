@@ -357,13 +357,12 @@ else:
             c6.write(fmt_brl(valor_tot))
             with c7:
                 _menu_excluir(ticker, classe)
-            if c8.button("∨" if not st.session_state.get(exp_key) else "∧", key=f"toggle_{ticker}"):
+            if c8.button("▼" if not st.session_state.get(exp_key) else "▲", key=f"toggle_{ticker}"):
                 st.session_state[exp_key] = not st.session_state.get(exp_key, False)
                 st.rerun()
 
             if st.session_state.get(exp_key):
                 st.caption(f"PM: {fmt_brl(pm)}")
-                _cabecalho_ativo(ticker, classe, pm, qtd)
                 _secao_compras(a, classe)
 
     if acoes:
