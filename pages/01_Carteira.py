@@ -209,48 +209,49 @@ else:
         else:
             add_ativo(ticker, qtd_total, round(pm, 4), classe, pvp=pvp)
 
-    def _secao_compras(ticker: str, classe: str) -> None:
+    def _secao_compras(ativo: dict, classe: str) -> None:
         """Exibe tabela de compras e formulário de registro para um ativo."""
+        ticker      = ativo["ticker"]
         preco_atual = get_preco_atual(ticker, classe)
-        compras = get_compras(ticker)
+        compras     = get_compras(ticker)
 
         st.divider()
         st.caption("**Histórico de Compras**")
 
+        cab1, cab2, cab3, cab4, cab5, cab6, cab7 = st.columns([2, 2, 1.5, 2, 2, 2, 1])
+        cab1.caption("Data"); cab2.caption("Preço pago")
+        cab3.caption("Qtd."); cab4.caption("Ganho (R$)")
+        cab5.caption("Ganho (%)"); cab6.caption("Valor atual"); cab7.write("")
+
+        def _linha_compra(data_str: str, p_pago: float, qtd: float, row_key: str | None) -> None:
+            pa        = preco_atual or p_pago
+            ganho     = (pa - p_pago) * qtd
+            ganho_pct = ((pa - p_pago) / p_pago) * 100 if p_pago else 0.0
+            v_at      = pa * qtd
+            cor       = "#00C896" if ganho >= 0 else "#FF4B4B"
+            seta      = "↑" if ganho >= 0 else "↓"
+            qtd_fmt   = str(int(qtd)) if classe in ("Ações", "FIIs") and qtd == int(qtd) else f"{qtd:g}"
+
+            r1, r2, r3, r4, r5, r6, r7 = st.columns([2, 2, 1.5, 2, 2, 2, 1])
+            r1.write(data_str)
+            r2.write(fmt_brl(p_pago))
+            r3.write(qtd_fmt)
+            r4.markdown(f"<span style='color:{cor};font-weight:600;'>{seta} {fmt_brl(abs(ganho))}</span>",
+                        unsafe_allow_html=True)
+            r5.markdown(f"<span style='color:{cor};font-weight:600;'>{seta} {abs(ganho_pct):.2f}%</span>",
+                        unsafe_allow_html=True)
+            r6.write(fmt_brl(v_at))
+            with r7:
+                if row_key and st.button("🗑", key=f"del_compra_{row_key}", help="Remover", type="secondary"):
+                    deletar_compra(row_key)
+                    _recalcular_ativo_por_compras(ticker, classe)
+                    st.rerun()
+
         if compras:
-            cab1, cab2, cab3, cab4, cab5, cab6, cab7 = st.columns([2, 2, 1.5, 2, 2, 2, 1])
-            cab1.caption("Data"); cab2.caption("Preço pago")
-            cab3.caption("Qtd."); cab4.caption("Ganho (R$)")
-            cab5.caption("Ganho (%)"); cab6.caption("Valor atual"); cab7.write("")
-
             for c in compras:
-                qtd    = float(c["quantidade"])
-                p_pago = float(c["preco_compra"])
-                pa     = preco_atual or p_pago
-                ganho  = (pa - p_pago) * qtd
-                ganho_pct = ((pa - p_pago) / p_pago) * 100 if p_pago else 0.0
-                v_at   = pa * qtd
-                cor    = "#00C896" if ganho >= 0 else "#FF4B4B"
-                seta   = "↑" if ganho >= 0 else "↓"
-
-                r1, r2, r3, r4, r5, r6, r7 = st.columns([2, 2, 1.5, 2, 2, 2, 1])
-                r1.write(c["data_compra"])
-                r2.write(fmt_brl(p_pago))
-                r3.write(f"{qtd:g}")
-                r4.markdown(
-                    f"<span style='color:{cor};font-weight:600;'>{seta} {fmt_brl(abs(ganho))}</span>",
-                    unsafe_allow_html=True,
-                )
-                r5.markdown(
-                    f"<span style='color:{cor};font-weight:600;'>{seta} {abs(ganho_pct):.2f}%</span>",
-                    unsafe_allow_html=True,
-                )
-                r6.write(fmt_brl(v_at))
-                with r7:
-                    if st.button("🗑", key=f"del_compra_{c['id']}", help="Remover", type="secondary"):
-                        deletar_compra(str(c["id"]))
-                        _recalcular_ativo_por_compras(ticker, classe)
-                        st.rerun()
+                _linha_compra(c["data_compra"], float(c["preco_compra"]), float(c["quantidade"]), str(c["id"]))
+        else:
+            _linha_compra("—", float(ativo["preco_medio"]), float(ativo["quantidade"]), None)
 
         key_form = f"show_form_compra_{ticker}"
         if st.button("+ Registrar compra", key=f"btn_reg_{ticker}"):
@@ -326,7 +327,7 @@ else:
                 with h2:
                     _menu_excluir(a["ticker"], "Ações")
                 _cabecalho_ativo(a["ticker"], "Ações", float(a["preco_medio"]), float(a["quantidade"]))
-                _secao_compras(a["ticker"], "Ações")
+                _secao_compras(a, "Ações")
 
     if fiis:
         st.subheader("FIIs")
@@ -337,7 +338,7 @@ else:
                 with h2:
                     _menu_excluir(a["ticker"], "FIIs")
                 _cabecalho_ativo(a["ticker"], "FIIs", float(a["preco_medio"]), float(a["quantidade"]))
-                _secao_compras(a["ticker"], "FIIs")
+                _secao_compras(a, "FIIs")
 
     if renda_fixa:
         st.subheader("Renda Fixa")
@@ -368,7 +369,7 @@ else:
                     _menu_excluir(a["ticker"], "Alternativo")
                 _cabecalho_ativo(a["ticker"], "Alternativo",
                                  float(a["preco_medio"]), float(a["quantidade"]))
-                _secao_compras(a["ticker"], "Alternativo")
+                _secao_compras(a, "Alternativo")
 
     # ── Watchlist ─────────────────────────────────────────────────────────────
 
