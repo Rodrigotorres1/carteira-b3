@@ -5,14 +5,14 @@ import plotly.graph_objects as go
 import streamlit as st
 import yfinance as yf
 
+from utils.database import get_todas_compras, is_authenticated
 from utils.market_data import get_indices_renda_fixa
 from utils.portfolio import (
     fmt_brl,
+    get_ativos,
     get_historico_patrimonio,
     salvar_snapshot_patrimonio,
 )
-
-from utils.database import is_authenticated
 if not is_authenticated():
     st.warning("Você precisa estar logado para acessar esta página.")
     st.stop()
@@ -84,6 +84,43 @@ def _buscar_benchmark_pct(nome: str, data_inicio: pd.Timestamp, indices: dict) -
         return hist.index, pct.values
     except Exception:
         return None, None
+
+
+def _aporte_acumulado(df_patrimonio: pd.DataFrame) -> pd.Series | None:
+    """Retorna série de aporte acumulado alinhada às datas do patrimônio."""
+    eventos = []
+    for c in get_todas_compras():
+        try:
+            eventos.append({
+                "data": pd.to_datetime(c["data_compra"]),
+                "valor": float(c["quantidade"]) * float(c["preco_compra"]),
+            })
+        except Exception:
+            pass
+    for a in get_ativos():
+        if a.get("classe") == "Renda Fixa" and a.get("data_aplicacao"):
+            try:
+                eventos.append({
+                    "data": pd.to_datetime(a["data_aplicacao"], dayfirst=True),
+                    "valor": float(a["preco_medio"]),
+                })
+            except Exception:
+                pass
+    if not eventos:
+        return None
+    df_ev = (
+        pd.DataFrame(eventos)
+        .groupby("data")["valor"].sum()
+        .cumsum()
+        .reset_index()
+        .rename(columns={"data": "data_dt", "valor": "aporte"})
+    )
+    df_merged = pd.merge_asof(
+        df_patrimonio[["data_dt"]].sort_values("data_dt"),
+        df_ev.sort_values("data_dt"),
+        on="data_dt", direction="backward",
+    )
+    return df_merged["aporte"].values
 
 
 tab_rent, tab_patr = st.tabs(["Rentabilidade", "Patrimônio"])
@@ -257,20 +294,31 @@ with tab_patr:
         cor_patr = "#00C896" if var_p >= 0 else "#FF4B4B"
         fill_patr = "rgba(0,200,150,0.15)" if var_p >= 0 else "rgba(255,75,75,0.12)"
 
+        aporte = _aporte_acumulado(df_p)
+
         fig2 = go.Figure()
         fig2.add_trace(go.Scatter(
             x=df_p["data_dt"], y=df_p["valor"],
-            name="Patrimônio", showlegend=False,
+            name="Patrimônio atual",
             fill="tozeroy", fillcolor=fill_patr,
             line={"color": cor_patr, "width": 2.5},
             line_shape="spline",
-            hovertemplate="<b>%{x|%d/%m/%Y}</b><br>R$ %{y:,.2f}<extra></extra>",
+            hovertemplate="<b>%{x|%d/%m/%Y}</b><br>Patrimônio: R$ %{y:,.2f}<extra></extra>",
         ))
+        if aporte is not None:
+            fig2.add_trace(go.Scatter(
+                x=df_p["data_dt"], y=aporte,
+                name="Total aportado",
+                line={"color": "rgba(255,255,255,0.45)", "dash": "dash", "width": 1.5},
+                hovertemplate="<b>%{x|%d/%m/%Y}</b><br>Aportado: R$ %{y:,.2f}<extra></extra>",
+            ))
         fig2.update_layout(
             hovermode="x unified",
+            legend={"orientation": "h", "yanchor": "bottom", "y": 1.02,
+                    "xanchor": "left", "x": 0, "font": {"size": 12}},
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
-            margin={"l": 10, "r": 10, "t": 10, "b": 10},
+            margin={"l": 10, "r": 10, "t": 30, "b": 10},
             xaxis={
                 "showgrid": False, "zeroline": False,
                 "tickformat": "%d/%m/%y", "tickangle": -30,
