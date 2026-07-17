@@ -218,29 +218,35 @@ else:
         st.caption("**Histórico de Compras**")
 
         if compras:
-            cab1, cab2, cab3, cab4, cab5, cab6 = st.columns([2, 2, 2, 2, 2, 1])
+            cab1, cab2, cab3, cab4, cab5, cab6, cab7 = st.columns([2, 2, 1.5, 2, 2, 2, 1])
             cab1.caption("Data"); cab2.caption("Preço pago")
             cab3.caption("Qtd."); cab4.caption("Ganho (R$)")
-            cab5.caption("Valor atual"); cab6.write("")
+            cab5.caption("Ganho (%)"); cab6.caption("Valor atual"); cab7.write("")
 
             for c in compras:
-                qtd   = float(c["quantidade"])
+                qtd    = float(c["quantidade"])
                 p_pago = float(c["preco_compra"])
-                pa    = preco_atual or p_pago
-                ganho = (pa - p_pago) * qtd
-                v_at  = pa * qtd
-                cor   = "#00C896" if ganho >= 0 else "#FF4B4B"
+                pa     = preco_atual or p_pago
+                ganho  = (pa - p_pago) * qtd
+                ganho_pct = ((pa - p_pago) / p_pago) * 100 if p_pago else 0.0
+                v_at   = pa * qtd
+                cor    = "#00C896" if ganho >= 0 else "#FF4B4B"
+                seta   = "↑" if ganho >= 0 else "↓"
 
-                r1, r2, r3, r4, r5, r6 = st.columns([2, 2, 2, 2, 2, 1])
+                r1, r2, r3, r4, r5, r6, r7 = st.columns([2, 2, 1.5, 2, 2, 2, 1])
                 r1.write(c["data_compra"])
                 r2.write(fmt_brl(p_pago))
                 r3.write(str(qtd))
                 r4.markdown(
-                    f"<span style='color:{cor};font-weight:600;'>{fmt_brl(ganho)}</span>",
+                    f"<span style='color:{cor};font-weight:600;'>{seta} {fmt_brl(abs(ganho))}</span>",
                     unsafe_allow_html=True,
                 )
-                r5.write(fmt_brl(v_at))
-                with r6:
+                r5.markdown(
+                    f"<span style='color:{cor};font-weight:600;'>{seta} {abs(ganho_pct):.2f}%</span>",
+                    unsafe_allow_html=True,
+                )
+                r6.write(fmt_brl(v_at))
+                with r7:
                     if st.button("🗑", key=f"del_compra_{c['id']}", help="Remover", type="secondary"):
                         deletar_compra(str(c["id"]))
                         _recalcular_ativo_por_compras(ticker, classe)
