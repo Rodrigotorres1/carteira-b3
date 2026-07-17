@@ -152,7 +152,6 @@ if buscar and ticker_busca:
                 f"padding:2px 8px;border-radius:10px;font-size:0.75rem'>{estilo}</span>",
                 unsafe_allow_html=True,
             )
-            st.metric("Score", f"{score_data['score_oportunidade']}/10")
 
             if entrada_saida:
                 e1, e2 = st.columns(2)
