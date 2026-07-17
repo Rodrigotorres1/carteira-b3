@@ -26,6 +26,16 @@ def _cor_var(v: float) -> str:
     return "color: #00A878" if v >= 0 else "color: #FF4B4B"
 
 
+def _metric_cor(col, label: str, texto: str, positivo: bool) -> None:
+    cor  = "#00C896" if positivo else "#FF4B4B"
+    seta = "↑" if positivo else "↓"
+    col.markdown(
+        f"<div style='font-size:13px;color:#888;margin-bottom:4px'>{label}</div>"
+        f"<div style='font-size:24px;font-weight:700;color:{cor}'>{seta} {texto}</div>",
+        unsafe_allow_html=True,
+    )
+
+
 st.title("Alternativos")
 
 cotacao_dolar = get_cotacao_dolar()
@@ -61,10 +71,14 @@ else:
                 c1.metric("Preço (BRL)", _fmt_brl(preco_atual),
                           delta=f"{dados['variacao_diaria_pct']:+.2f}%")
                 c2.metric("Cotação (BRL)", "—")
-            c3.metric("Variação 7 dias",
-                      f"{dados['variacao_7d_pct']:+.2f}%" if dados["variacao_7d_pct"] else "—")
-            c4.metric("Variação 30 dias",
-                      f"{dados['variacao_30d_pct']:+.2f}%" if dados["variacao_30d_pct"] else "—")
+            if dados["variacao_7d_pct"] is not None:
+                _metric_cor(c3, "Variação 7 dias", f"{abs(dados['variacao_7d_pct']):.2f}%", dados["variacao_7d_pct"] >= 0)
+            else:
+                c3.metric("Variação 7 dias", "—")
+            if dados["variacao_30d_pct"] is not None:
+                _metric_cor(c4, "Variação 30 dias", f"{abs(dados['variacao_30d_pct']):.2f}%", dados["variacao_30d_pct"] >= 0)
+            else:
+                c4.metric("Variação 30 dias", "—")
 
             # ── Posição do usuário ──
             quantidade = ativo["quantidade"]
@@ -81,17 +95,14 @@ else:
                 p1, p2, p3, p4 = st.columns(4)
                 p1.metric("Quantidade", f"{quantidade:.{casas}f}")
                 p2.metric("Valor Atual (BRL)", _fmt_brl(valor_atual_brl))
-                p3.metric("Resultado (BRL)", _fmt_brl(resultado_brl),
-                          delta=f"{_fmt_brl(resultado_brl)}")
+                _metric_cor(p3, "Resultado (BRL)", _fmt_brl(abs(resultado_brl)), resultado_brl >= 0)
                 p4.metric("Preço Médio (BRL)", _fmt_brl(preco_medio_orig))
                 st.caption("Preço cadastrado na carteira")
 
                 r1, r2, r3 = st.columns(3)
                 r1.metric("Preço Médio (USD)", _fmt_usd(preco_medio_usd))
-                r2.metric("Resultado (USD)", _fmt_usd(resultado_usd),
-                          delta=f"{_fmt_usd(resultado_usd)}")
-                r3.metric("Resultado (%)", f"{resultado_pct:+.2f}%",
-                          delta=f"{resultado_pct:+.2f}%")
+                _metric_cor(r2, "Resultado (USD)", _fmt_usd(abs(resultado_usd)), resultado_usd >= 0)
+                _metric_cor(r3, "Resultado (%)", f"{abs(resultado_pct):.2f}%", resultado_pct >= 0)
             else:
                 resultado_brl = valor_atual_brl - quantidade * preco_medio_orig
                 resultado_pct = ((preco_atual - preco_medio_orig) / preco_medio_orig) * 100
@@ -100,8 +111,7 @@ else:
                 p1, p2, p3 = st.columns(3)
                 p1.metric("Quantidade", f"{quantidade:.{casas}f}")
                 p2.metric("Valor Atual (BRL)", _fmt_brl(valor_atual_brl))
-                p3.metric("Resultado (%)", f"{resultado_pct:+.2f}%",
-                          delta=f"{resultado_pct:+.2f}%")
+                _metric_cor(p3, "Resultado (%)", f"{abs(resultado_pct):.2f}%", resultado_pct >= 0)
 
             # ── Histórico ──
             hist = dados["historico"].reset_index()
