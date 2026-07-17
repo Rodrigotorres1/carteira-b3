@@ -151,7 +151,7 @@ else:
 
     st.dataframe(df.style.apply(_estilo, axis=1), use_container_width=True, hide_index=True)
 
-    if not alertas_criticos:
+    if not alertas_criticos and not ativos_vencendo:
         st.success("Nenhum vencimento próximo.")
 
     st.header("Comparativo com Benchmarks")
