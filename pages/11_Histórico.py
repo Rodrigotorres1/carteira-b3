@@ -148,35 +148,28 @@ with tab_rent:
         df_r["rent_pct"] = (df_r["valor"] / v0 - 1) * 100
 
         cor_linha = "#00C896" if rendimento_pct >= 0 else "#FF4B4B"
-        fill_cor  = "rgba(0,200,150,0.15)" if rendimento_pct >= 0 else "rgba(255,75,75,0.12)"
-
-        y_vals = df_r["rent_pct"].tolist()
-        y_pos  = [v if v >= 0 else 0 for v in y_vals]
-        y_neg  = [v if v <= 0 else 0 for v in y_vals]
+        y_min = df_r["rent_pct"].min()
+        y_max = df_r["rent_pct"].max()
 
         fig = go.Figure()
 
-        # área positiva
-        fig.add_trace(go.Scatter(
-            x=df_r["data_dt"], y=y_pos,
-            showlegend=False, fill="tozeroy",
-            fillcolor="rgba(0,200,150,0.18)",
-            line={"width": 0}, hoverinfo="skip",
-        ))
-        # área negativa
-        fig.add_trace(go.Scatter(
-            x=df_r["data_dt"], y=y_neg,
-            showlegend=False, fill="tozeroy",
-            fillcolor="rgba(255,75,75,0.18)",
-            line={"width": 0}, hoverinfo="skip",
-        ))
+        # faixas de fundo sutis (positivo = verde, negativo = vermelho)
+        if y_max > 0:
+            fig.add_hrect(y0=0, y1=y_max * 1.3,
+                          fillcolor="rgba(0,200,150,0.05)", line_width=0)
+        if y_min < 0:
+            fig.add_hrect(y0=y_min * 1.3, y1=0,
+                          fillcolor="rgba(255,75,75,0.05)", line_width=0)
+
         # linha principal
         fig.add_trace(go.Scatter(
             x=df_r["data_dt"], y=df_r["rent_pct"],
             name="Carteira", showlegend=benchmark != "Nenhum",
-            line={"color": cor_linha, "width": 2.5},
+            fill="tozeroy",
+            fillcolor="rgba(0,200,150,0.07)" if rendimento_pct >= 0 else "rgba(255,75,75,0.07)",
+            line={"color": cor_linha, "width": 2},
             line_shape="spline",
-            hovertemplate="<b>%{x|%d/%m/%Y}</b><br>Carteira: %{y:.2f}%<extra></extra>",
+            hovertemplate="<b>%{x|%d/%m/%Y}</b><br>Carteira: <b>%{y:.2f}%</b><extra></extra>",
         ))
 
         if benchmark != "Nenhum" and bench_pct_val is not None:
@@ -184,8 +177,8 @@ with tab_rent:
             fig.add_trace(go.Scatter(
                 x=datas_b, y=vals_b,
                 name=benchmark, showlegend=True,
-                line={"color": cor_bench, "dash": "dash", "width": 1.8},
-                hovertemplate=f"<b>%{{x|%d/%m/%Y}}</b><br>{benchmark}: %{{y:.2f}}%<extra></extra>",
+                line={"color": cor_bench, "dash": "dot", "width": 1.5},
+                hovertemplate=f"<b>%{{x|%d/%m/%Y}}</b><br>{benchmark}: <b>%{{y:.2f}}%</b><extra></extra>",
             ))
 
         fig.update_layout(
@@ -194,18 +187,18 @@ with tab_rent:
                     "xanchor": "left", "x": 0, "font": {"size": 12}},
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
-            margin={"l": 10, "r": 10, "t": 10, "b": 10},
+            margin={"l": 10, "r": 10, "t": 30, "b": 10},
             xaxis={
                 "showgrid": False, "zeroline": False,
                 "tickformat": "%d/%m/%y", "tickangle": -30,
-                "tickfont": {"size": 11, "color": "#888"},
+                "tickfont": {"size": 11, "color": "#666"},
             },
             yaxis={
-                "showgrid": True, "gridcolor": "rgba(255,255,255,0.06)",
-                "zeroline": True, "zerolinecolor": "rgba(255,255,255,0.25)",
+                "showgrid": True, "gridcolor": "rgba(255,255,255,0.07)",
+                "zeroline": True, "zerolinecolor": "rgba(255,255,255,0.3)",
                 "zerolinewidth": 1.5,
                 "tickformat": ".1f", "ticksuffix": "%",
-                "tickfont": {"size": 11, "color": "#888"},
+                "tickfont": {"size": 11, "color": "#666"},
             },
         )
         st.plotly_chart(fig, use_container_width=True)
