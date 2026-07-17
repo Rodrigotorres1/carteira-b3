@@ -17,7 +17,7 @@ from utils.portfolio import (
     get_watchlist,
     salvar_snapshot_patrimonio,
 )
-from utils.profile import get_alocacao_alvo, get_profile, profile_exists, save_profile
+from utils.profile import get_alocacao_alvo, get_profile, profile_exists, save_alocacao_personalizada, save_profile
 
 # ── Callback de recuperação de senha ─────────────────────────────────────────
 params = st.query_params
@@ -68,6 +68,8 @@ if not _autenticado:
 
 if "trocando_perfil" not in st.session_state:
     st.session_state.trocando_perfil = False
+if "perfil_personalizado" not in st.session_state:
+    st.session_state.perfil_personalizado = False
 
 with st.sidebar:
     st.title("📊 Carteira B3")
@@ -101,7 +103,38 @@ def _tela_selecao_perfil(titulo: str, subtitulo: str) -> None:
     st.write(subtitulo)
     st.divider()
 
-    col1, col2, col3 = st.columns(3)
+    if st.session_state.perfil_personalizado:
+        st.subheader("Definir alocação personalizada")
+        st.caption("Os percentuais devem somar exatamente 100%.")
+
+        c1, c2, c3, c4 = st.columns(4)
+        acoes       = c1.number_input("Ações (%)",      0, 100, 25, step=5)
+        fiis        = c2.number_input("FIIs (%)",       0, 100, 25, step=5)
+        renda_fixa  = c3.number_input("Renda Fixa (%)", 0, 100, 25, step=5)
+        alternativos = c4.number_input("Alternativo (%)", 0, 100, 25, step=5)
+
+        total = acoes + fiis + renda_fixa + alternativos
+        if total == 100:
+            st.success(f"Total: {total}% ✓")
+        else:
+            st.warning(f"Total: {total}% — precisa somar 100%.")
+
+        col_s, col_v, _ = st.columns([1, 1, 2])
+        if col_s.button("Salvar", use_container_width=True, type="primary",
+                        disabled=total != 100):
+            save_alocacao_personalizada({
+                "acoes": acoes, "fiis": fiis,
+                "renda_fixa": renda_fixa, "alternativos": alternativos,
+            })
+            st.session_state.trocando_perfil = False
+            st.session_state.perfil_personalizado = False
+            st.rerun()
+        if col_v.button("Voltar", use_container_width=True):
+            st.session_state.perfil_personalizado = False
+            st.rerun()
+        return
+
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         if st.button("Conservador", use_container_width=True):
@@ -123,6 +156,12 @@ def _tela_selecao_perfil(titulo: str, subtitulo: str) -> None:
             st.session_state.trocando_perfil = False
             st.rerun()
         st.caption("Aceita maior volatilidade.\nFoco em crescimento de longo prazo.")
+
+    with col4:
+        if st.button("Personalizado", use_container_width=True):
+            st.session_state.perfil_personalizado = True
+            st.rerun()
+        st.caption("Já tem recomendação de consultor?\nDefina sua própria alocação.")
 
 
 salvar_snapshot_patrimonio()
