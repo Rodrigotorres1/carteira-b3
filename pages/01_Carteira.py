@@ -133,11 +133,15 @@ if submitted:
         if ativo_existe(nome):
             todas = get_compras(nome)
             qtd_t = sum(float(c["quantidade"]) for c in todas)
-            pm_t  = sum(float(c["quantidade"]) * float(c["preco_compra"]) for c in todas) / qtd_t
+            if qtd_t > 0:
+                pm_t = sum(float(c["quantidade"]) * float(c["preco_compra"]) for c in todas) / qtd_t
+            else:
+                qtd_t = quantidade
+                pm_t  = preco_compra_form
             editar_ativo(nome, {"quantidade": qtd_t, "preco_medio": round(pm_t, 4)})
         else:
             add_ativo(nome, quantidade, round(preco_compra_form, 4), classe)
-        st.success(f"{nome} adicionado com sucesso. Preco médio calculado pela compra registrada.")
+        st.success(f"{nome} adicionado com sucesso.")
     else:
         # Renda Fixa: fluxo original
         if ativo_existe(nome):
