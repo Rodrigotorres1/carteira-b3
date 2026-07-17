@@ -65,24 +65,40 @@ for classe in CLASSES_PADRAO:
     alvo = alocacao_alvo.get(classe, 0.0)
     linhas.append({
         "Classe": classe,
-        "Atual (%)": round(atual, 1),
-        "Alvo (%)": round(alvo, 1),
-        "Diferença (%)": round(atual - alvo, 1),
+        "Atual (%)": round(atual, 2),
+        "Alvo (%)": round(alvo, 2),
+        "Diferença (%)": round(atual - alvo, 2),
     })
 
 df = pd.DataFrame(linhas)
 
 
-def _estilo_linha(row: pd.Series) -> list[str]:
-    cor = _cor_diferenca(row["Diferença (%)"])
-    return ["", "", "", cor]
+_linhas_html = ""
+for row in linhas:
+    cor_css = _cor_diferenca(row["Diferença (%)"])
+    cor_hex = cor_css.replace("color: ", "")
+    _linhas_html += (
+        f"<tr>"
+        f"<td style='padding:8px 12px'>{row['Classe']}</td>"
+        f"<td style='padding:8px 12px; text-align:right'>{row['Atual (%)']:.2f}</td>"
+        f"<td style='padding:8px 12px; text-align:right'>{row['Alvo (%)']:.2f}</td>"
+        f"<td style='padding:8px 12px; text-align:right; color:{cor_hex}; font-weight:600'>{row['Diferença (%)']:+.2f}</td>"
+        f"</tr>"
+    )
 
-
-st.dataframe(
-    df.style.apply(_estilo_linha, axis=1),
-    use_container_width=True,
-    hide_index=True,
-)
+st.markdown(f"""
+<table style='width:100%; border-collapse:collapse; font-size:14px'>
+  <thead>
+    <tr style='border-bottom:1px solid #333; color:#aaa; font-size:12px'>
+      <th style='padding:8px 12px; text-align:left; font-weight:500'>Classe</th>
+      <th style='padding:8px 12px; text-align:right; font-weight:500'>Atual (%)</th>
+      <th style='padding:8px 12px; text-align:right; font-weight:500'>Alvo (%)</th>
+      <th style='padding:8px 12px; text-align:right; font-weight:500'>Diferença (%)</th>
+    </tr>
+  </thead>
+  <tbody>{_linhas_html}</tbody>
+</table>
+""", unsafe_allow_html=True)
 
 st.header("Alertas de Rebalanceamento")
 alertas = False
@@ -90,14 +106,14 @@ for _, row in df.iterrows():
     diff_abs = abs(row["Diferença (%)"])
     if diff_abs > 8:
         st.error(
-            f"{row['Classe']}: diferença de {row['Diferença (%)']:+.1f}% em relação ao alvo "
-            f"({row['Atual (%)']:.1f}% atual vs {row['Alvo (%)']:.1f}% alvo)."
+            f"{row['Classe']}: diferença de {row['Diferença (%)']:+.2f}% em relação ao alvo "
+            f"({row['Atual (%)']:.2f}% atual vs {row['Alvo (%)']:.2f}% alvo)."
         )
         alertas = True
     elif diff_abs > 3:
         st.warning(
-            f"{row['Classe']}: diferença de {row['Diferença (%)']:+.1f}% em relação ao alvo "
-            f"({row['Atual (%)']:.1f}% atual vs {row['Alvo (%)']:.1f}% alvo)."
+            f"{row['Classe']}: diferença de {row['Diferença (%)']:+.2f}% em relação ao alvo "
+            f"({row['Atual (%)']:.2f}% atual vs {row['Alvo (%)']:.2f}% alvo)."
         )
         alertas = True
 
@@ -118,7 +134,7 @@ with col_esq:
         labels=list(alocacao_atual_graf.keys()),
         values=list(alocacao_atual_graf.values()),
         hole=0.35,
-        textinfo="label+percent",
+        texttemplate="%{label}<br>%{percent:.2%}",
     ))
     fig_atual.update_layout(title_text="Alocação Atual", showlegend=False)
     st.plotly_chart(fig_atual, use_container_width=True)
@@ -128,7 +144,7 @@ with col_dir:
         labels=list(alocacao_alvo_graf.keys()),
         values=list(alocacao_alvo_graf.values()),
         hole=0.35,
-        textinfo="label+percent",
+        texttemplate="%{label}<br>%{percent:.2%}",
     ))
     fig_alvo.update_layout(title_text="Alocação Alvo", showlegend=False)
     st.plotly_chart(fig_alvo, use_container_width=True)
