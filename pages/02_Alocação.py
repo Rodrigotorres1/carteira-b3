@@ -143,7 +143,8 @@ with col_esq:
         labels=list(alocacao_atual_graf.keys()),
         values=list(alocacao_atual_graf.values()),
         hole=0.35,
-        texttemplate="%{label}<br>%{percent:.2%}",
+        text=[f"{k}<br>{_fmt_pct(v)}%" for k, v in alocacao_atual_graf.items()],
+        textinfo="text",
     ))
     fig_atual.update_layout(title_text="Alocação Atual", showlegend=False)
     st.plotly_chart(fig_atual, use_container_width=True)
@@ -153,7 +154,8 @@ with col_dir:
         labels=list(alocacao_alvo_graf.keys()),
         values=list(alocacao_alvo_graf.values()),
         hole=0.35,
-        texttemplate="%{label}<br>%{percent:.2%}",
+        text=[f"{k}<br>{_fmt_pct(v)}%" for k, v in alocacao_alvo_graf.items()],
+        textinfo="text",
     ))
     fig_alvo.update_layout(title_text="Alocação Alvo", showlegend=False)
     st.plotly_chart(fig_alvo, use_container_width=True)
